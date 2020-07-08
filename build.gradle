@@ -1,16 +1,23 @@
 plugins {
     id 'org.jetbrains.kotlin.jvm' version '1.3.72'
+    id "maven-publish"
+    id "com.jfrog.bintray" version "1.8.5"
 }
 
-group 'io.githhub.febb'
-version '0.1.0'
+group 'io.github.febb'
+version metautils_version
+archivesBaseName = "metautils"
 
 repositories {
     mavenCentral()
 }
 
 dependencies {
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
+    implementation("org.ow2.asm:asm:8.0.1")
+    implementation 'org.ow2.asm:asm-tree:8.0.1'
+    implementation 'org.ow2.asm:asm-util:8.0.1'
+    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
+    implementation 'com.squareup:javapoet:1.12.1'
 }
 
 compileKotlin {
@@ -18,4 +25,40 @@ compileKotlin {
 }
 compileTestKotlin {
     kotlinOptions.jvmTarget = "1.8"
+}
+
+publishing {
+    publications {
+        mavenJava(MavenPublication) {
+            artifactId = archivesBaseName
+
+            from project.components.java
+
+            pom.withXml {
+                def root = asNode()
+                root.appendNode('description', 'Metaprogramming Utilities')
+                root.appendNode('name', 'MetaUtils')
+                root.appendNode('url', "https://github.com/IntransientMC/MetaUtils-Releases")
+            }
+        }
+
+
+    }
+}
+
+bintray {
+    user = project.hasProperty('bintray_user') ? project.property('bintray_user') : ""
+    key = project.hasProperty('bintray_api_key') ? project.property('bintray_api_key') : ""
+    publications = ["mavenJava"]
+    publish = true //[Default: false] Whether version should be auto published after an upload
+    pkg {
+        repo = "libs"
+        name = "MetaUtils"
+        licenses = ["mit"]
+        version {
+            name = metautils_version
+            released = new Date()
+        }
+    }
+
 }
