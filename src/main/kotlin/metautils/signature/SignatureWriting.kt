@@ -11,7 +11,7 @@ fun MethodSignature.toClassfileName(): String =
             returnType.toClassfileName() + throwsSignatures.joinToString("") { "^${it.toClassfileName()}" }
 
 fun FieldSignature.toClassfileName(): String = when (this) {
-    is ClassGenericType -> "L" + packageName?.toSlashString().orEmpty() + "/".includeIf(packageName != null) +
+    is ClassGenericType -> "L" + packageName.toSlashString() + "/".includeIf(!packageName.isEmpty) +
             classNameSegments.joinToString("$") { it.toClassfileName() } + ";"
     is TypeVariable -> "T$name;"
     is ArrayGenericType -> "[" + componentType.toClassfileName()

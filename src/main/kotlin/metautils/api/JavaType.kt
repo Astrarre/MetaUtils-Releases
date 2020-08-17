@@ -1,8 +1,9 @@
 package metautils.api
 
-import metautils.types.jvm.FieldType
-import metautils.types.jvm.JvmType
-import metautils.types.jvm.ObjectType
+import metautils.internal.visiting
+import metautils.types.FieldType
+import metautils.types.JvmType
+import metautils.types.ObjectType
 import metautils.signature.*
 import metautils.util.*
 import org.objectweb.asm.tree.AnnotationNode
@@ -12,7 +13,7 @@ import org.objectweb.asm.tree.AnnotationNode
 // but those are rarely used, only exist in newer versions of jetbrains annotations, and even modern decompilers
 // don't know how to decompile them, so it's fine to omit them here
 data class JavaType<out T : GenericReturnType>(val type: T, val annotations: List<JavaAnnotation>) :
-    Tree by branches(annotations, type) {
+    Visitable by visiting(annotations, type) {
     companion object {
         fun fromRawClassName(name: String) = ClassGenericType.fromRawClassString(name).noAnnotations()
     }
@@ -25,7 +26,7 @@ typealias JavaReturnType = JavaType<GenericReturnType>
 typealias JavaThrowableType = JavaType<ThrowableType>
 
 data class JavaAnnotation private constructor(val type: ObjectType, val parameters: Map<String, AnnotationValue>) :
-    Tree by branches(parameters.values, type) {
+    Visitable by visiting(parameters.values, type) {
     override fun toString(): String = "@$type"
     companion object {
         //TODO: cache @Nullable and @Nonull annotations
@@ -37,10 +38,10 @@ data class JavaAnnotation private constructor(val type: ObjectType, val paramete
     }
 }
 
-sealed class AnnotationValue : Tree {
-    class Array(val components: List<AnnotationValue>) : AnnotationValue(), Tree by branches(components)
-    class Annotation(val annotation: JavaAnnotation) : AnnotationValue(), Tree by branch(annotation)
-    sealed class Primitive : AnnotationValue(), Leaf {
+sealed class AnnotationValue : Visitable {
+    class Array(val components: List<AnnotationValue>) : AnnotationValue(), Visitable by visiting(components)
+    class Annotation(val annotation: JavaAnnotation) : AnnotationValue(), Visitable by visiting(annotation)
+    sealed class Primitive : AnnotationValue(), VisitLeaf {
         abstract val primitive: Any
 
         class Num(override val primitive: Number) : Primitive()
@@ -49,8 +50,8 @@ sealed class AnnotationValue : Tree {
         class Str(override val primitive: String) : Primitive()
     }
 
-    class Enum(val type: ObjectType, val constant: String) : AnnotationValue(), Tree by branch(type)
-    class ClassType(val type: JvmType) : AnnotationValue(), Tree by branch(type)
+    class Enum(val type: ObjectType, val constant: String) : AnnotationValue(), Visitable by visiting(type)
+    class ClassType(val type: JvmType) : AnnotationValue(), Visitable by visiting(type)
 }
 
 fun <T : GenericReturnType> JavaType<T>.remap(mapper: (className: QualifiedName) -> QualifiedName?) =

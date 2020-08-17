@@ -35,7 +35,7 @@ annotation class CodeGenerationDsl
 interface CodeGenerator {
     fun writeClass(
         info: ClassInfo,
-        packageName: PackageName?,
+        packageName: PackageName,
         srcRoot: Path
     )
 }

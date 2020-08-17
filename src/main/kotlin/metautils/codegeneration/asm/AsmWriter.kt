@@ -6,10 +6,9 @@ import metautils.asm.AnnotateableVisitor
 import metautils.asm.annotateable
 import metautils.codegeneration.*
 import metautils.signature.*
-import metautils.types.jvm.JvmType
-import metautils.types.jvm.MethodDescriptor
-import metautils.types.jvm.ObjectType
-import metautils.types.jvm.toJvmString
+import metautils.types.JvmType
+import metautils.types.MethodDescriptor
+import metautils.types.ObjectType
 import metautils.util.*
 import org.objectweb.asm.ClassWriter
 import org.objectweb.asm.MethodVisitor

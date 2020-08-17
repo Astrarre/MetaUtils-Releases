@@ -196,9 +196,9 @@ private class SignatureReader(private val signature: String, typeVariableDeclara
         return TypeVariable(identifier, declaration)
     }
 
-    private fun readPackageSpecifier(): PackageName? {
+    private fun readPackageSpecifier(): PackageName {
         val packageEnd = findLastPackageSeparator()
-        if (packageEnd == -1) return null
+        if (packageEnd == -1) return PackageName.Empty
         return PackageName.fromComponents(
             buildList {
                 readRepeatedly(

@@ -2,24 +2,21 @@
 
 package metautils.util
 
-import metautils.api.GraphNode
 import metautils.internal.ClassQualifier
 import metautils.internal.PackageQualifier
 import metautils.internal.parseQualifiedName
 import metautils.internal.stringifyQualifiedName
-import metautils.types.jvm.JavaLangObjectString
 import java.nio.file.Path
 import java.nio.file.Paths
 
-data class QualifiedName internal constructor(val packageName: PackageName, val shortName: ShortClassName) : Leaf,
-    GraphNode {
+data class QualifiedName internal constructor(val packageName: PackageName, val shortName: ShortClassName) : VisitLeaf{
     companion object {
         fun fromClassName(
             name: String,
             slashQualified: Boolean = true,
             dollarQualified: Boolean = true
         ): QualifiedName =
-            if (name == JavaLangObjectString) Object else parseQualifiedName(slashQualified, dollarQualified, name)
+            if (name == ClassNames.Object) Object else parseQualifiedName(slashQualified, dollarQualified, name)
 
         fun fromPackageAndShortName(packageName: PackageName, shortName: ShortClassName): QualifiedName {
             return if (packageName == Object.packageName
@@ -28,19 +25,13 @@ data class QualifiedName internal constructor(val packageName: PackageName, val 
             else QualifiedName(packageName, shortName)
         }
 
-        val Object = parseQualifiedName(slashQualified = true, dollarQualified = true, name = JavaLangObjectString)
+        val Object = parseQualifiedName(slashQualified = true, dollarQualified = true, name = ClassNames.Object)
 
     }
 
     fun toString(slashQualified: Boolean = true, dollarQualified: Boolean = true): String {
         return stringifyQualifiedName(dollarQualified, slashQualified)
     }
-
-    //TODO: destroy presentablename and such?
-    override val presentableName: String
-        get() = shortName.toDotString()
-    override val globallyUniqueIdentifier: String
-        get() = toSlashString()
 
     override fun toString(): String = toDotString(dollarQualified = true)
 

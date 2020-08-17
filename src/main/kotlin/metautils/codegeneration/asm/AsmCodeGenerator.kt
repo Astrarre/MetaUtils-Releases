@@ -13,7 +13,9 @@ import metautils.signature.JavaLangObjectGenericType
 import metautils.signature.VoidJavaType
 import metautils.signature.getContainedClassesRecursively
 import metautils.signature.toJvmType
-import metautils.types.jvm.*
+import metautils.types.JvmReturnType
+import metautils.types.MethodDescriptor
+import metautils.types.ObjectType
 import java.nio.file.Path
 
 
@@ -21,7 +23,7 @@ private fun GenericReturnType.hasGenericsInvolved() = this is TypeVariable
         || getContainedClassesRecursively().any { type -> type.classNameSegments.any { it.typeArguments != null } }
 
 internal fun JavaReturnType.asmType(): Type = toJvmType().asmType()
-internal fun ReturnDescriptor.asmType(): Type = Type.getType(classFileName)
+internal fun JvmReturnType.asmType(): Type = Type.getType(classFileName)
 
 
 //private
@@ -43,7 +45,7 @@ private fun writeClassImpl(
         access, visibility, className,
         sourceFile = className.shortName.outerMostClass() + ".java",
         signature = signature,
-        superClass = superClass?.toJvmType() ?: JavaLangObjectJvmType,
+        superClass = superClass?.toJvmType() ?: ObjectType.Object,
         superInterfaces = superInterfaces.map { it.toJvmType() },
         annotations = info.annotations
     ) {
@@ -70,11 +72,10 @@ private fun writeClassImpl(
 
 
 class AsmCodeGenerator(private val index: ClasspathIndex) : CodeGenerator {
-    //TODO: make packageName not nullable
-    override fun writeClass(info: ClassInfo, packageName: PackageName?, srcRoot: Path) {
+    override fun writeClass(info: ClassInfo, packageName: PackageName, srcRoot: Path) {
         writeClassImpl(
             info,
-            QualifiedName.fromPackageAndShortName(packageName ?: PackageName.Empty,
+            QualifiedName.fromPackageAndShortName(packageName,
                 ShortClassName.fromComponents(listOf(info.shortName))),
             srcRoot,
             index

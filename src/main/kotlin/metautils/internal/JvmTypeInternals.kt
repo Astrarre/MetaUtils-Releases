@@ -1,11 +1,21 @@
-package metautils.types.jvm
+package metautils.internal
 
-import metautils.types.internal.jvmPrimitiveStringToTypeChar
-import metautils.types.internal.jvmPrimitiveStringToType
+import metautils.types.*
 
-//TODO: keep going for other classes if we split this up into a seperate lib
+internal val jvmPrimitiveStringToType = mapOf(
+    JvmPrimitiveTypes.Byte.classFileName to JvmPrimitiveTypes.Byte,
+    JvmPrimitiveTypes.Char.classFileName to JvmPrimitiveTypes.Char,
+    JvmPrimitiveTypes.Double.classFileName to JvmPrimitiveTypes.Double,
+    JvmPrimitiveTypes.Float.classFileName to JvmPrimitiveTypes.Float,
+    JvmPrimitiveTypes.Int.classFileName to JvmPrimitiveTypes.Int,
+    JvmPrimitiveTypes.Long.classFileName to JvmPrimitiveTypes.Long,
+    JvmPrimitiveTypes.Short.classFileName to JvmPrimitiveTypes.Short,
+    JvmPrimitiveTypes.Boolean.classFileName to JvmPrimitiveTypes.Boolean
+)
 
-internal fun jvmTypeFromDescriptorString(descriptor: String): FieldDescriptor {
+private val jvmPrimitiveStringToTypeChar = jvmPrimitiveStringToType.mapKeys { it.key[0] }
+
+internal fun jvmTypeFromDescriptorString(descriptor: String): JvmType {
     jvmPrimitiveStringToType[descriptor]?.let { return it }
     require(descriptor.isNotEmpty()) { "A descriptor cannot be an empty string" }
     if (descriptor[0] == '[') return ArrayType(jvmTypeFromDescriptorString(descriptor.substring(1)))
@@ -19,7 +29,7 @@ internal fun jvmTypeFromDescriptorString(descriptor: String): FieldDescriptor {
 
 internal fun methodDescriptorFromDescriptorString(descriptor: String): MethodDescriptor {
     require(descriptor[0] == '(') { "A method descriptor must begin with a '('" }
-    val parameterDescriptors = mutableListOf<FieldType>()
+    val parameterDescriptors = mutableListOf<JvmType>()
     var parameterStartPos = 1
     var endPos: Int? = null
     var inClassName = false
@@ -40,7 +50,7 @@ internal fun methodDescriptorFromDescriptorString(descriptor: String): MethodDes
         if (c == 'L') inClassName = true
 
         if (descriptorTerminated) {
-            parameterDescriptors.add(FieldDescriptor.fromDescriptorString(descriptor.substring(parameterStartPos, i + 1)))
+            parameterDescriptors.add(JvmType.fromDescriptorString(descriptor.substring(parameterStartPos, i + 1)))
             parameterStartPos = i + 1
         }
 
@@ -55,8 +65,8 @@ internal fun methodDescriptorFromDescriptorString(descriptor: String): MethodDes
     requireNotNull(endPos) { "The parameter list of a method descriptor must end with a ')'" }
     require(endPos < descriptor.length - 1) { "A method descriptor must have a return type" }
     val returnDescriptorString = descriptor.substring(endPos + 1, descriptor.length)
-    val returnDescriptor = if (returnDescriptorString == ReturnDescriptor.Void.classFileName) ReturnDescriptor.Void
-    else FieldDescriptor.fromDescriptorString(returnDescriptorString)
+    val returnDescriptor = if (returnDescriptorString == VoidJvmReturnType.classFileName) VoidJvmReturnType
+    else JvmType.fromDescriptorString(returnDescriptorString)
 
     return MethodDescriptor(parameterDescriptors, returnDescriptor)
 

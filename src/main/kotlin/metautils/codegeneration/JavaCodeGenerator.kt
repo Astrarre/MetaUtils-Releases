@@ -19,12 +19,12 @@ object JavaCodeGenerator : CodeGenerator {
 
     override fun writeClass(
         info: ClassInfo,
-        packageName: PackageName?,
+        packageName: PackageName,
         srcRoot: Path
     ) {
         val generatedClass = generateClass(info)
         JavaFile.builder(
-            packageName?.toDotString() ?: "",
+            packageName.toDotString(),
             generatedClass.build()
         ).skipJavaLangImports(true).build().writeTo(srcRoot)
     }

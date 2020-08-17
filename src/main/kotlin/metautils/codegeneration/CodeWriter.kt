@@ -4,11 +4,8 @@ import com.squareup.javapoet.*
 import metautils.api.AnnotationValue
 import metautils.api.JavaAnnotation
 import metautils.api.JavaType
-import metautils.types.jvm.ArrayType
-import metautils.types.jvm.JvmPrimitiveType
-import metautils.types.jvm.JvmType
-import metautils.types.jvm.ObjectType
 import metautils.signature.*
+import metautils.types.*
 import metautils.util.*
 
 internal sealed class CodeWriter {
@@ -72,18 +69,18 @@ internal open class JavaCodeWriter : CodeWriter() {
     }
 
     private fun JvmPrimitiveType.toFormat() = when (this) {
-        JvmPrimitiveType.Byte -> "byte"
-        JvmPrimitiveType.Char -> "char"
-        JvmPrimitiveType.Double -> "double"
-        JvmPrimitiveType.Float -> "float"
-        JvmPrimitiveType.Int -> "int"
-        JvmPrimitiveType.Long -> "long"
-        JvmPrimitiveType.Short -> "short"
-        JvmPrimitiveType.Boolean -> "boolean"
+        JvmPrimitiveTypes.Byte -> "byte"
+        JvmPrimitiveTypes.Char -> "char"
+        JvmPrimitiveTypes.Double -> "double"
+        JvmPrimitiveTypes.Float -> "float"
+        JvmPrimitiveTypes.Int -> "int"
+        JvmPrimitiveTypes.Long -> "long"
+        JvmPrimitiveTypes.Short -> "short"
+        JvmPrimitiveTypes.Boolean -> "boolean"
     }
 
     private fun JvmType.toFormattedString(): FormattedString = when (this) {
-        is JvmPrimitiveType -> toFormat().format
+        is JvmPrimitiveTypes -> toFormat().format
         is ObjectType -> TYPE_FORMAT.formatType(toRawJavaType())
         is ArrayType -> componentType.toFormattedString().mapString { "$it[]" }
     }
@@ -113,14 +110,14 @@ internal open class JavaCodeWriter : CodeWriter() {
 
 
 private fun JvmPrimitiveType.toTypeName(): TypeName = when (this) {
-    JvmPrimitiveType.Byte -> TypeName.BYTE
-    JvmPrimitiveType.Char -> TypeName.CHAR
-    JvmPrimitiveType.Double -> TypeName.DOUBLE
-    JvmPrimitiveType.Float -> TypeName.FLOAT
-    JvmPrimitiveType.Int -> TypeName.INT
-    JvmPrimitiveType.Long -> TypeName.LONG
-    JvmPrimitiveType.Short -> TypeName.SHORT
-    JvmPrimitiveType.Boolean -> TypeName.BOOLEAN
+    JvmPrimitiveTypes.Byte -> TypeName.BYTE
+    JvmPrimitiveTypes.Char -> TypeName.CHAR
+    JvmPrimitiveTypes.Double -> TypeName.DOUBLE
+    JvmPrimitiveTypes.Float -> TypeName.FLOAT
+    JvmPrimitiveTypes.Int -> TypeName.INT
+    JvmPrimitiveTypes.Long -> TypeName.LONG
+    JvmPrimitiveTypes.Short -> TypeName.SHORT
+    JvmPrimitiveTypes.Boolean -> TypeName.BOOLEAN
 }
 
 fun TypeArgumentDeclaration.toTypeName(): TypeVariableName = TypeVariableName.get(

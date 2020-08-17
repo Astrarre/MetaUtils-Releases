@@ -8,6 +8,9 @@ import java.net.URL
 import java.nio.charset.StandardCharsets
 import java.nio.file.Path
 
+object ClassNames {
+    const val Object = "java/lang/Object"
+}
 
 fun String.includeIf(boolean: Boolean) = if (boolean) this else ""
 

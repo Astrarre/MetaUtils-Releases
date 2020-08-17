@@ -6,13 +6,13 @@ import metautils.api.AnyJavaType
 import metautils.api.JavaAnnotation
 import metautils.api.JavaClassType
 import metautils.api.JavaType
-import metautils.types.jvm.*
 import metautils.internal.fromPackageNameAndClassSegments
+import metautils.types.*
 import metautils.util.*
 
 val JavaLangObjectGenericType = QualifiedName.Object.toRawGenericType()
 val JavaLangObjectJavaType = AnyJavaType(JavaLangObjectGenericType, annotations = listOf())
-val VoidJavaType = ReturnDescriptor.Void.toRawGenericType().noAnnotations()
+val VoidJavaType = VoidJvmReturnType.toRawGenericType().noAnnotations()
 
 fun TypeArgumentDeclaration.remap(mapper: (className: QualifiedName) -> QualifiedName?): TypeArgumentDeclaration =
         copy(classBound = classBound?.remap(mapper), interfaceBounds = interfaceBounds.map { it.remap(mapper) })
@@ -63,8 +63,7 @@ fun ClassGenericType.Companion.fromNameAndTypeArgs(
 
 
 fun ClassGenericType.toJvmQualifiedName(): QualifiedName =
-    //TODO: change packageName to not be nullable
-    QualifiedName.fromPackageNameAndClassSegments(packageName ?: PackageName.Empty, classNameSegments)
+    QualifiedName.fromPackageNameAndClassSegments(packageName, classNameSegments)
 
 fun ClassGenericType.toJvmString() = toJvmQualifiedName().toSlashString()
 
@@ -80,14 +79,14 @@ fun GenericTypeOrPrimitive.toJvmType(): JvmType = when (this) {
 
 private fun TypeVariable.resolveJvmType(): JvmType = with(declaration) {
     classBound?.toJvmType()
-            ?: if (interfaceBounds.isNotEmpty()) interfaceBounds[0].toJvmType() else JavaLangObjectJvmType
+            ?: if (interfaceBounds.isNotEmpty()) interfaceBounds[0].toJvmType() else ObjectType.Object
 }
 
 fun ClassGenericType.toJvmType(): ObjectType = ObjectType.fromClassName(toJvmQualifiedName())
 
-fun GenericReturnType.toJvmType(): ReturnDescriptor = when (this) {
+fun GenericReturnType.toJvmType(): JvmReturnType = when (this) {
     is GenericTypeOrPrimitive -> toJvmType()
-    GenericReturnType.Void -> ReturnDescriptor.Void
+    GenericReturnType.Void -> VoidJvmReturnType
 }
 
 fun MethodSignature.toJvmDescriptor() = MethodDescriptor(
@@ -120,27 +119,27 @@ fun QualifiedName.toClassGenericType(typeArgsChain: List<List<TypeArgument>?>): 
 
 fun ObjectType.toRawGenericType(): ClassGenericType = fullClassName.toRawGenericType()
 fun ObjectType.toRawJavaType(): JavaClassType = JavaClassType(fullClassName.toRawGenericType(), annotations = listOf())
-fun FieldType.toRawGenericType(): GenericTypeOrPrimitive = when (this) {
-    is JvmPrimitiveType -> JvmPrimitiveToGenericsPrimitive.getValue(this)
+fun JvmType.toRawGenericType(): GenericTypeOrPrimitive = when (this) {
+    is JvmPrimitiveTypes -> JvmPrimitiveToGenericsPrimitive.getValue(this)
     is ObjectType -> toRawGenericType()
     is ArrayType -> ArrayGenericType(componentType.toRawGenericType())
 }
 
 private val JvmPrimitiveToGenericsPrimitive = mapOf(
-        JvmPrimitiveType.Byte to GenericsPrimitiveType.Byte,
-        JvmPrimitiveType.Char to GenericsPrimitiveType.Char,
-        JvmPrimitiveType.Double to GenericsPrimitiveType.Double,
-        JvmPrimitiveType.Float to GenericsPrimitiveType.Float,
-        JvmPrimitiveType.Int to GenericsPrimitiveType.Int,
-        JvmPrimitiveType.Long to GenericsPrimitiveType.Long,
-        JvmPrimitiveType.Short to GenericsPrimitiveType.Short,
-        JvmPrimitiveType.Boolean to GenericsPrimitiveType.Boolean
+        JvmPrimitiveTypes.Byte to GenericsPrimitiveType.Byte,
+        JvmPrimitiveTypes.Char to GenericsPrimitiveType.Char,
+        JvmPrimitiveTypes.Double to GenericsPrimitiveType.Double,
+        JvmPrimitiveTypes.Float to GenericsPrimitiveType.Float,
+        JvmPrimitiveTypes.Int to GenericsPrimitiveType.Int,
+        JvmPrimitiveTypes.Long to GenericsPrimitiveType.Long,
+        JvmPrimitiveTypes.Short to GenericsPrimitiveType.Short,
+        JvmPrimitiveTypes.Boolean to GenericsPrimitiveType.Boolean
 )
 
 
-fun ReturnDescriptor.toRawGenericType(): GenericReturnType = when (this) {
+fun JvmReturnType.toRawGenericType(): GenericReturnType = when (this) {
     is FieldType -> toRawGenericType()
-    ReturnDescriptor.Void -> GenericReturnType.Void
+    VoidJvmReturnType -> GenericReturnType.Void
 }
 
 fun ClassGenericType.remapTopLevel(mapper: (className: QualifiedName) -> QualifiedName?): ClassGenericType {

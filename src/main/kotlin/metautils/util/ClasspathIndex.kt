@@ -1,8 +1,7 @@
 package metautils.util
 
 import metautils.asm.readToClassNode
-import metautils.types.jvm.JavaLangObjectName
-import metautils.types.jvm.MethodDescriptor
+import metautils.types.MethodDescriptor
 import java.lang.reflect.Method
 import java.nio.file.FileSystem
 import java.nio.file.FileSystems
@@ -10,7 +9,7 @@ import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
 
 data class MethodEntry(val id: MethodIdentifier, val access: Int) {
-    val descriptorParsed = lazy { MethodDescriptor.fromDescriptorString(id.descriptor) }
+//    val descriptorParsed = lazy { MethodDescriptor.fromDescriptorString(id.descriptor) }
 }
 
 data class MethodIdentifier(val name: String, val descriptor: String)
@@ -143,34 +142,12 @@ class ClasspathIndex @PublishedApi internal constructor(
 
 
     fun getSuperTypesRecursively(className: QualifiedName): Set<QualifiedName> {
-        return (getSuperTypesRecursivelyImpl(className) + JavaLangObjectName).toSet()
+        return (getSuperTypesRecursivelyImpl(className) + QualifiedName.Object).toSet()
     }
-
-//    fun doesClassEventuallyExtend(extendingClass: QualifiedName, extendedClass: QualifiedName): Boolean {
-//        return extendedClass in getSuperClassesRecursively(extendingClass)
-//    }
-
-//    fun getSuperClassesRecursively(className: QualifiedName): List<QualifiedName> {
-//        val superClasses = mutableListOf<QualifiedName>()
-//        val entry = getClassEntry(className)
-//        if (entry.superClass != null) {
-//            addSuperClasses(entry.superClass, superClasses)
-//        }
-//        superClasses.add(JavaLangObjectName)
-//        return superClasses
-//    }
-
-//    private fun addSuperClasses(className: QualifiedName, otherSuperClasses: MutableList<QualifiedName>) {
-//        val entry = getClassEntry(className)
-//        otherSuperClasses.add(entry.name)
-//        if (entry.superClass != null) {
-//            addSuperClasses(entry.superClass, otherSuperClasses)
-//        }
-//    }
 
     private fun getSuperTypesRecursivelyImpl(className: QualifiedName): List<QualifiedName> {
         val directSupers = getClassEntry(className).directSuperTypes
-        return (directSupers + directSupers.filter { it != JavaLangObjectName }
+        return (directSupers + directSupers.filter { it != QualifiedName.Object }
             .flatMap { getSuperTypesRecursivelyImpl(it) })
     }
 
@@ -206,37 +183,3 @@ class ClasspathIndex @PublishedApi internal constructor(
 
 
 }
-
-//fun indexClasspath(classPath: List<Path>, additionalEntries: Map<QualifiedName, ClassEntry>): ClasspathIndex {
-////    val map = classPath.flatMap { path ->
-////        getClasses(path).map { classNode ->
-////            val name = classNode.name.toQualifiedName(dotQualified = false)
-////            name to ClassEntry(
-////                methods = classNode.methods.map {
-////                    val id = MethodIdentifier(it.name, it.desc)
-////                    id to MethodEntry(id, it.access)
-////                }.toMap(),
-////                superClass = classNode.superName.toQualifiedName(dotQualified = false),
-////                superInterfaces = classNode.interfaces.map { it.toQualifiedName(dotQualified = false) },
-////                access = classNode.access,
-////                name = name
-////            )
-////        }
-////    }.toMap()
-//    return ClasspathIndex(classPath, additionalEntries)
-//}
-
-
-//private fun getClasses(path: Path): List<ClassNode> = try {
-//    when {
-//        !path.exists() -> listOf()
-//        path.isDirectory() -> path.recursiveChildren().filter { it.isClassfile() }.map { readToClassNode(it) }.toList()
-//        path.toString().endsWith(".jar") -> path.walkJar { paths ->
-//            paths.filter { it.isClassfile() && it.fileName.toString() != "module-info.class" }
-//                .map { readToClassNode(it) }.toList()
-//        }
-//        else -> error("Got a classpath element which is not a jar or directory: $path")
-//    }
-//} catch (e: ZipError) {
-//    throw RuntimeException("Could not parse jar of classpath at $path", e)
-//}

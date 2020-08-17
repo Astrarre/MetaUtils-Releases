@@ -8,8 +8,8 @@ import codegeneration.isAbstract
 import codegeneration.isInterface
 import metautils.codegeneration.Visibility
 import metautils.signature.*
-import metautils.types.jvm.MethodDescriptor
-import metautils.types.jvm.ObjectType
+import metautils.types.MethodDescriptor
+import metautils.types.ObjectType
 import metautils.util.QualifiedName
 import metautils.util.applyIf
 import metautils.util.values

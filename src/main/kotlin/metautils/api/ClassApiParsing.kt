@@ -15,10 +15,8 @@ import org.objectweb.asm.tree.MethodNode
 import metautils.signature.fromRawClassString
 import metautils.signature.noAnnotations
 import metautils.signature.toRawGenericType
-import metautils.types.jvm.FieldDescriptor
-import metautils.types.jvm.JavaLangObjectString
-import metautils.types.jvm.MethodDescriptor
-import metautils.types.jvm.ParameterDescriptor
+import metautils.types.JvmType
+import metautils.types.MethodDescriptor
 import metautils.util.*
 import java.nio.file.Path
 
@@ -130,7 +128,7 @@ private fun readSingularClass(
 
     val classApi = ClassApi(
         name = fullClassName,
-        superClass = if (classNode.superName == JavaLangObjectString) null else {
+        superClass = if (classNode.superName == ClassNames.Object) null else {
             JavaClassType(signature.superClass, annotations = listOf())
         },
         superInterfaces = signature.superInterfaces.map { JavaClassType(it, annotations = listOf()) },
@@ -227,7 +225,7 @@ private fun parseAnnotations(visible: List<AnnotationNode>?, invisible: List<Ann
 
 private fun readField(field: FieldNode, classTypeArgs: TypeArgDecls): ClassApi.Field {
     val signature = if (field.signature != null) FieldSignature.readFrom(field.signature, classTypeArgs)
-    else FieldDescriptor.fromDescriptorString(field.desc).toRawGenericType()
+    else JvmType.fromDescriptorString(field.desc).toRawGenericType()
 
     return ClassApi.Field(
         name = field.name,
@@ -246,7 +244,7 @@ private fun readField(field: FieldNode, classTypeArgs: TypeArgDecls): ClassApi.F
 private fun getNonGeneratedParameterDescriptors(
     descriptor: MethodDescriptor,
     method: MethodNode
-): List<ParameterDescriptor> {
+): List<JvmType> {
     if (method.parameters == null) return descriptor.parameterDescriptors
     val generatedIndices = method.parameters.mapIndexed { i, node -> i to node }.filter { '$' in it.second.name }
         .map { it.first }

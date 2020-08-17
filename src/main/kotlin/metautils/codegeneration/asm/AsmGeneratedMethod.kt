@@ -6,7 +6,7 @@ import metautils.util.*
 import org.objectweb.asm.Opcodes
 import metautils.signature.outerClass
 import metautils.signature.toJvmType
-import metautils.types.jvm.*
+import metautils.types.*
 
 private const val printStackOps = false
 
@@ -47,7 +47,7 @@ private class JvmState(
     private var maxStack = 0
     private var currentStack = 0
 
-    inline fun trackPush(type: ReturnDescriptor, message: () -> String = { "" }) {
+    inline fun trackPush(type: JvmReturnType, message: () -> String = { "" }) {
         trackPush(type.byteWidth()) { message() + " of type $type" }
     }
 
@@ -55,7 +55,7 @@ private class JvmState(
         trackPush(1) { message() + " of reference type" }
     }
 
-    inline fun trackPop(type: ReturnDescriptor, message: () -> String = { "" }) {
+    inline fun trackPop(type: JvmReturnType, message: () -> String = { "" }) {
         trackPop(type.byteWidth()) { message() + " of type $type" }
     }
 
@@ -100,7 +100,7 @@ const val ConstructorsName = "<init>"
 
 internal class AsmGeneratedMethod(
     private val methodWriter: AsmClassWriter.MethodBody,
-    private val returnType: ReturnDescriptor,
+    private val returnType: JvmReturnType,
     name: String,
     isStatic: Boolean,
     parameters: List<Pair<String, JvmType>>
@@ -139,7 +139,7 @@ internal class AsmGeneratedMethod(
                     opcode = Opcodes.INVOKESPECIAL,
                     methodName = ConstructorsName,
                     isInterface = false,
-                    returnType = ReturnDescriptor.Void,
+                    returnType = JvmReturnType.Void,
                     owner = superType,
                     parameterTypes = parameters.keys,
                     parametersThatWillBePopped = superType.prependTo(parameters.keys),
@@ -165,10 +165,10 @@ internal class AsmGeneratedMethod(
             is MethodCall -> addMethodCall()
 
             is ArrayConstructor -> {
-                trackPush(JvmPrimitiveType.Int) { "push array size" }
+                trackPush(JvmPrimitiveTypes.Int) { "push array size" }
                 methodWriter.writeLvArgInstruction(Opcodes.ILOAD, 0)
                 // Assumes reference type array
-                trackPop(JvmPrimitiveType.Int) { "pass array size" }
+                trackPop(JvmPrimitiveTypes.Int) { "pass array size" }
                 methodWriter.writeTypeArgInstruction(Opcodes.ANEWARRAY, componentClass.toJvmType())
                 trackReferencePush { "push array result" }
             }
@@ -208,7 +208,7 @@ internal class AsmGeneratedMethod(
         parametersToLoad: List<Receiver>,
         // This is needed just for checks, we don't actually need this information technically
         parametersThatWillBePopped: List<JvmType>,
-        returnType: ReturnDescriptor,
+        returnType: JvmReturnType,
         owner: ObjectType,
         isInterface: Boolean/*,
         parametersAlreadyLoaded: List<JvmType> = listOf()*/
@@ -256,7 +256,7 @@ internal class AsmGeneratedMethod(
                 parameterTypes = explicitlyDeclaredMethodParameters,
                 parametersToLoad = parameters.values.prependIfNotNull(receiver), // inner class
                 parametersThatWillBePopped = constructing.toJvmType().prependTo(explicitlyDeclaredMethodParameters),
-                returnType = ReturnDescriptor.Void,
+                returnType = JvmReturnType.Void,
                 owner = constructing.toJvmType(),
                 isInterface = false
             )
