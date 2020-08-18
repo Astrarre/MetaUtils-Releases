@@ -13,7 +13,7 @@ interface Mappable<out T : Mappable<T, M>, M> {
 
 private fun <T, R> Iterable<T>.collectionMap(map: (T) -> R) = map(map)
 
-fun <T : Mappable<T, M>, M> Iterable<T>.remap(mapper: (M) -> M): Iterable<T> {
+fun <T : Mappable<T, M>, M, I :Iterable<T>> I.mapElements(mapper: (M) -> M): List<T> {
     return this.collectionMap { it.map(mapper) }
 }
 
@@ -22,7 +22,7 @@ interface Visitable {
     fun visitDirectChildren(visitor: (Visitable) -> Unit)
 }
 
-interface Tree<T : Tree<T, M>, M> : Visitable, Mappable<T, M>
+interface Tree<out T : Tree<T, M>, M> : Visitable, Mappable<T, M>
 
 interface VisitLeaf : Visitable {
     override fun visitDirectChildren(visitor: (Visitable) -> Unit) {}
@@ -34,6 +34,7 @@ interface Leaf<T : Leaf<T, M>, M> : VisitLeaf, Mappable<T, M> {
     }
 }
 
+typealias NameTree<T> = Tree<T,QualifiedName>
 typealias NameMappable<T> = Mappable<T, QualifiedName>
 typealias NameLeaf<T> = Leaf<T, QualifiedName>
 

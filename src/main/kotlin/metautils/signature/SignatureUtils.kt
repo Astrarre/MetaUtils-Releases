@@ -2,10 +2,7 @@
 
 package metautils.signature
 
-import metautils.api.AnyJavaType
-import metautils.api.JavaAnnotation
-import metautils.api.JavaClassType
-import metautils.api.JavaType
+import metautils.api.*
 import metautils.internal.fromPackageNameAndClassSegments
 import metautils.types.*
 import metautils.util.*
@@ -14,17 +11,17 @@ val JavaLangObjectGenericType = QualifiedName.Object.toRawGenericType()
 val JavaLangObjectJavaType = AnyJavaType(JavaLangObjectGenericType, annotations = listOf())
 val VoidJavaType = VoidJvmReturnType.toRawGenericType().noAnnotations()
 
-fun TypeArgumentDeclaration.remap(mapper: (className: QualifiedName) -> QualifiedName?): TypeArgumentDeclaration =
-        copy(classBound = classBound?.remap(mapper), interfaceBounds = interfaceBounds.map { it.remap(mapper) })
+//fun TypeArgumentDeclaration.remap(mapper: (className: QualifiedName) -> QualifiedName?): TypeArgumentDeclaration =
+//        copy(classBound = classBound?.remap(mapper), interfaceBounds = interfaceBounds.map { it.remap(mapper) })
 
-fun <T : GenericReturnType> T.remap(mapper: (className: QualifiedName) -> QualifiedName?): T = when (this) {
-    is GenericsPrimitiveType -> this
-    is ClassGenericType -> remap(mapper)
-    is TypeVariable -> copy(declaration = declaration.remap(mapper))
-    is ArrayGenericType -> copy(componentType.remap(mapper))
-    GenericReturnType.Void -> GenericReturnType.Void
-    else -> error("impossible")
-} as T
+//fun <T : GenericReturnType> T.remap(mapper: (className: QualifiedName) -> QualifiedName?): T = when (this) {
+//    is GenericsPrimitiveType -> this
+//    is ClassGenericType -> remap(mapper)
+//    is TypeVariable -> copy(declaration = declaration.remap(mapper))
+//    is ArrayGenericType -> copy(componentType.remap(mapper))
+//    GenericReturnType.Void -> GenericReturnType.Void
+//    else -> error("impossible")
+//} as T
 
 
 @OptIn(ExperimentalStdlibApi::class)
@@ -32,12 +29,12 @@ fun GenericReturnType.getContainedClassesRecursively(): List<ClassGenericType> =
         buildList { visitContainedClasses { add(it) } }
 
 fun GenericReturnType.visitContainedClasses(visitor: (ClassGenericType) -> Unit): Unit = when (this) {
-    is GenericsPrimitiveType, is TypeVariable, GenericReturnType.Void -> {
+    is GenericsPrimitiveType, is TypeVariable, VoidGenericReturnType -> {
     }
     is ClassGenericType -> {
         visitor(this)
         for (className in classNameSegments) {
-            className.typeArguments?.forEach {
+            className.typeArguments.forEach {
                 if (it is TypeArgument.SpecificType) it.type.visitContainedClasses(visitor)
             }
         }
@@ -55,9 +52,9 @@ fun ClassGenericType.Companion.fromRawClassString(string: String, slashQualified
  */
 fun ClassGenericType.Companion.fromNameAndTypeArgs(
     name: QualifiedName,
-    typeArgs: List<TypeArgument>?
+    typeArgs: List<TypeArgument>
 ): ClassGenericType {
-    val outerClassesArgs: List<List<TypeArgument>?> = (0 until (name.shortName.components.size - 1)).map { null }
+    val outerClassesArgs: List<List<TypeArgument>> = (0 until (name.shortName.components.size - 1)).map { listOf() }
     return name.toClassGenericType(outerClassesArgs + listOf(typeArgs))
 }
 
@@ -86,7 +83,7 @@ fun ClassGenericType.toJvmType(): ObjectType = ObjectType.fromClassName(toJvmQua
 
 fun GenericReturnType.toJvmType(): JvmReturnType = when (this) {
     is GenericTypeOrPrimitive -> toJvmType()
-    GenericReturnType.Void -> VoidJvmReturnType
+    VoidGenericReturnType -> VoidJvmReturnType
 }
 
 fun MethodSignature.toJvmDescriptor() = MethodDescriptor(
@@ -94,9 +91,11 @@ fun MethodSignature.toJvmDescriptor() = MethodDescriptor(
         returnDescriptor = returnType.toJvmType()
 )
 
-fun JavaType<*>.toJvmType() = type.toJvmType()
-fun AnyJavaType.toJvmType() = type.toJvmType()
-fun JavaClassType.toJvmType() = type.toJvmType()
+//fun JavaType<*>.toJvmType() = type.toJvmType()
+fun JavaType<*>.toJvmType() : JvmReturnType = type.toJvmType()
+fun AnyJavaType.toJvmType(): JvmType = type.toJvmType()
+fun JavaClassType.toJvmType(): ObjectType = type.toJvmType()
+//fun JavaThrowableType.toJvmType() = type.toJvmType()
 
 
 fun ClassGenericType.outerClass(): ClassGenericType {
@@ -106,13 +105,13 @@ fun ClassGenericType.outerClass(): ClassGenericType {
 
 fun JavaClassType.outerClass(): JavaClassType = copy(type = type.outerClass())
 
-fun QualifiedName.toRawGenericType(): ClassGenericType = toClassGenericType(shortName.components.map { null })
+fun QualifiedName.toRawGenericType(): ClassGenericType = toClassGenericType(shortName.components.map { listOf() })
 
 /**
  *  Each element in typeArgsChain is for an element in the inner class name chain.
  *  Each element contains the type args for each class name in the chain.
  */
-fun QualifiedName.toClassGenericType(typeArgsChain: List<List<TypeArgument>?>): ClassGenericType =
+fun QualifiedName.toClassGenericType(typeArgsChain: List<List<TypeArgument>>): ClassGenericType =
         ClassGenericType(packageName,
                 shortName.components.zip(typeArgsChain).map { (name, args) -> SimpleClassGenericType(name, args) }
         )
@@ -138,37 +137,37 @@ private val JvmPrimitiveToGenericsPrimitive = mapOf(
 
 
 fun JvmReturnType.toRawGenericType(): GenericReturnType = when (this) {
-    is FieldType -> toRawGenericType()
-    VoidJvmReturnType -> GenericReturnType.Void
+    is JvmType -> toRawGenericType()
+    VoidJvmReturnType -> VoidGenericReturnType
 }
 
-fun ClassGenericType.remapTopLevel(mapper: (className: QualifiedName) -> QualifiedName?): ClassGenericType {
-    val asQualifiedName = toJvmQualifiedName()
-    val asMappedQualifiedName = mapper(asQualifiedName) ?: asQualifiedName
-    val mappedPackage = asMappedQualifiedName.packageName
+//fun ClassGenericType.remapTopLevel(mapper: (className: QualifiedName) -> QualifiedName?): ClassGenericType {
+//    val asQualifiedName = toJvmQualifiedName()
+//    val asMappedQualifiedName = mapper(asQualifiedName) ?: asQualifiedName
+//    val mappedPackage = asMappedQualifiedName.packageName
+//
+//    val mappedClasses = classNameSegments.zip(asMappedQualifiedName.shortName.components).map { (oldName, mappedName) ->
+//        SimpleClassGenericType(name = mappedName, typeArguments = oldName.typeArguments)
+//    }
+//
+//    return ClassGenericType(mappedPackage, mappedClasses)
+//}
 
-    val mappedClasses = classNameSegments.zip(asMappedQualifiedName.shortName.components).map { (oldName, mappedName) ->
-        SimpleClassGenericType(name = mappedName, typeArguments = oldName.typeArguments)
-    }
+//fun ClassGenericType.remapTypeArguments(mapper: (className: QualifiedName) -> QualifiedName?) =
+//        copy(classNameSegments = classNameSegments.map { it.copy(typeArguments = it.typeArguments?.remap(mapper)) })
 
-    return ClassGenericType(mappedPackage, mappedClasses)
-}
-
-fun ClassGenericType.remapTypeArguments(mapper: (className: QualifiedName) -> QualifiedName?) =
-        copy(classNameSegments = classNameSegments.map { it.copy(typeArguments = it.typeArguments?.remap(mapper)) })
-
-fun ClassGenericType.remap(mapper: (className: QualifiedName) -> QualifiedName?) = remapTopLevel(mapper)
-        .remapTypeArguments(mapper)
+//fun ClassGenericType.remap(mapper: (className: QualifiedName) -> QualifiedName?) = remapTopLevel(mapper)
+//        .remapTypeArguments(mapper)
 
 
-private fun TypeArgument.remap(mapper: (className: QualifiedName) -> QualifiedName?): TypeArgument = when (this) {
-    is TypeArgument.SpecificType -> copy(type = type.remap(mapper))
-    TypeArgument.AnyType -> TypeArgument.AnyType
-}
+//private fun TypeArgument.remap(mapper: (className: QualifiedName) -> QualifiedName?): TypeArgument = when (this) {
+//    is TypeArgument.SpecificType -> copy(type = type.remap(mapper))
+//    TypeArgument.AnyType -> TypeArgument.AnyType
+//}
 
-fun List<TypeArgument>.remap(mapper: (className: QualifiedName) -> QualifiedName?) = map { it.remap(mapper) }
+//fun List<TypeArgument>.remap(mapper: (className: QualifiedName) -> QualifiedName?) = map { it.remap(mapper) }
 
-fun List<TypeArgumentDeclaration>.toTypeArgumentsOfNames(): List<TypeArgument>? = if (isEmpty()) null else map {
+fun List<TypeArgumentDeclaration>.toTypeArgumentsOfNames(): List<TypeArgument> = map {
     TypeArgument.SpecificType(TypeVariable(it.name, it), wildcardType = null)
 }
 
@@ -178,7 +177,7 @@ fun <T : GenericReturnType> JavaType<T>.mapTypeVariables(mapper: (TypeVariable) 
 
 fun <T : GenericReturnType> T.mapTypeVariables(mapper: (TypeVariable) -> GenericType): T = when (this) {
     is GenericTypeOrPrimitive -> mapTypeVariables(mapper)
-    GenericReturnType.Void -> this
+    VoidGenericReturnType -> this
     else -> error("impossible")
 } as T // There is one case where this might fail, but the restrictions java places on throwable types should prevent that
 
@@ -203,8 +202,8 @@ fun ClassGenericType.mapTypeVariables(mapper: (TypeVariable) -> GenericType): Cl
         copy(classNameSegments =
         classNameSegments.map { it.copy(typeArguments = it.typeArguments.mapTypeVariables(mapper)) })
 
-fun List<TypeArgument>?.mapTypeVariables(mapper: (TypeVariable) -> GenericType): List<TypeArgument>? =
-        this?.map {
+fun List<TypeArgument>.mapTypeVariables(mapper: (TypeVariable) -> GenericType): List<TypeArgument> =
+        this.map {
             when (it) {
                 is TypeArgument.SpecificType -> it.copy(type = it.type.mapTypeVariables(mapper))
                 TypeArgument.AnyType -> it
@@ -216,7 +215,7 @@ fun TypeArgumentDeclaration.mapTypeVariables(mapper: (TypeVariable) -> GenericTy
         interfaceBounds = interfaceBounds.map { it.mapTypeVariables(mapper) }
 )
 
-fun List<TypeArgumentDeclaration>?.mapTypeVariablesDecl(mapper: (TypeVariable) -> GenericType): List<TypeArgumentDeclaration>? =
-        this?.map {
+fun List<TypeArgumentDeclaration>.mapTypeVariablesDecl(mapper: (TypeVariable) -> GenericType): List<TypeArgumentDeclaration> =
+        this.map {
             it.mapTypeVariables(mapper)
         }

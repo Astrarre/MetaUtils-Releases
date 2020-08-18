@@ -1,9 +1,6 @@
 package metautils.codegeneration.asm
 
-import metautils.types.JvmPrimitiveTypes
-import metautils.types.JvmReturnType
-import metautils.types.ObjectType
-import metautils.types.VoidJvmReturnType
+import metautils.types.*
 import metautils.util.toSlashString
 
 fun ObjectType.toJvmString() = fullClassName.toSlashString()

@@ -103,11 +103,11 @@ private inline fun ClassApi.visitThisAndOuterClasses(visitor: (ClassApi) -> Unit
     if (outerClass != null) visitor(outerClass!!)
 }
 
-val ClassApi.Method.isVoid get() = returnType.type == GenericReturnType.Void
+val ClassApi.Method.isVoid get() = returnType.type == VoidGenericReturnType
 fun ClassApi.asType(): JavaClassType =  name.toClassGenericType(
         if (isStatic) {
             // Only put type arguments at the end
-            (0 until outerClassCount()).map { null } + listOf(typeArguments.toTypeArgumentsOfNames())
+            (0 until outerClassCount()).map { listOf<TypeArgument>() } + listOf(typeArguments.toTypeArgumentsOfNames())
         } else outerClassesToThis().map { it.typeArguments.toTypeArgumentsOfNames() }
 ).noAnnotations()
 
@@ -117,7 +117,7 @@ fun ClassApi.asJvmType() = ObjectType.fromClassName(name)
 fun ClassApi.isSamInterface() = isInterface && methods.filter { it.isAbstract }.size == 1
 
 fun ClassApi.getSignature(): ClassSignature = ClassSignature(
-        typeArguments.applyIf<List<TypeArgumentDeclaration>?>(typeArguments.isEmpty()) { null },
+        typeArguments,
         superClass?.type ?: JavaLangObjectGenericType,
         superInterfaces.map { it.type }
 )

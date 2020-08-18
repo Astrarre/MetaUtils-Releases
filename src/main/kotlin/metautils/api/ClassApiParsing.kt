@@ -8,6 +8,7 @@ import metautils.codegeneration.MethodAccess
 import metautils.codegeneration.Visibility
 import kotlinx.coroutines.runBlocking
 import metautils.asm.*
+import metautils.internal.TypeArgDecls
 import metautils.signature.*
 import org.objectweb.asm.tree.AnnotationNode
 import org.objectweb.asm.tree.FieldNode
@@ -83,24 +84,12 @@ private fun readSingularClass(
 //        .flatMap { classApi -> classApi.typeArguments.map { it.name to it } }
 //        .toMap()
 
-    val outerClassTypeArgsMap = nonStaticOuterClassTypeArgs.map { it.name to it }.toMap()
+//    val outerClassTypeArgsMap = nonStaticOuterClassTypeArgs.map { it.name to it }.toMap()
 
-    val signature = if (classNode.signature != null) {
-        ClassSignature.readFrom(classNode.signature,
-            outerClassTypeArgs = outerClassTypeArgsMap
-        )
-    } else {
-        ClassSignature(
-            superClass = ClassGenericType.fromRawClassString(classNode.superName),
-            superInterfaces = classNode.interfaces.map {
-                ClassGenericType.fromRawClassString(it)
-            },
-            typeArguments = null
-        )
-    }
+    val signature = ClassSignature.fromAsmClassNode(classNode,nonStaticOuterClassTypeArgs)
 
-    val classTypeArgMap = (signature.typeArguments?.map { it.name to it }?.toMap() ?: mapOf()) +
-            outerClassTypeArgsMap
+
+    val classTypeArgMap = signature.typeArguments + nonStaticOuterClassTypeArgs
 
     val methods = classNode.methods.filter { !it.isSynthetic }
         .map { readMethod(it, /*classNode, */classTypeArgs = classTypeArgMap) }
@@ -112,7 +101,7 @@ private fun readSingularClass(
 //    val innerClasses = classNode.innerClasses.map { it.name to it }.toMap()
     val innerClassShortName = with(fullClassName.shortName.components) { if (size == 1) null else last() }
 
-    val typeArguments = signature.typeArguments ?: listOf()
+    val typeArguments = signature.typeArguments
     val nonStaticTypeArgs = nonStaticOuterClassTypeArgs + if(isStatic) listOf() else typeArguments
     val innerClasses = classNode.innerClasses
         .filter { innerClassShortName != it.innerName && it.outerName == classNode.name }
@@ -149,7 +138,7 @@ private fun readSingularClass(
             isFinal = classNode.isFinal
         ),
         isStatic = isStatic,
-        typeArguments = signature.typeArguments ?: listOf(),
+        typeArguments = signature.typeArguments,
         annotations = parseAnnotations(classNode.visibleAnnotations, classNode.invisibleAnnotations)
     )
 
@@ -223,8 +212,8 @@ private fun parseAnnotations(visible: List<AnnotationNode>?, invisible: List<Ann
 //}
 
 
-private fun readField(field: FieldNode, classTypeArgs: TypeArgDecls): ClassApi.Field {
-    val signature = if (field.signature != null) FieldSignature.readFrom(field.signature, classTypeArgs)
+private fun readField(field: FieldNode, classTypeArgs:  Iterable<TypeArgumentDeclaration>): ClassApi.Field {
+    val signature = if (field.signature != null) FieldSignature.fromFieldSignature(field.signature, classTypeArgs)
     else JvmType.fromDescriptorString(field.desc).toRawGenericType()
 
     return ClassApi.Field(
@@ -240,39 +229,20 @@ private fun readField(field: FieldNode, classTypeArgs: TypeArgDecls): ClassApi.F
 }
 
 
-// Generated parameters are generated $this garbage that come from for example inner classes
-private fun getNonGeneratedParameterDescriptors(
-    descriptor: MethodDescriptor,
-    method: MethodNode
-): List<JvmType> {
-    if (method.parameters == null) return descriptor.parameterDescriptors
-    val generatedIndices = method.parameters.mapIndexed { i, node -> i to node }.filter { '$' in it.second.name }
-        .map { it.first }
 
-    return descriptor.parameterDescriptors.filterIndexed { i, _ -> i !in generatedIndices }
-}
 
 private fun readMethod(
     method: MethodNode,
-//    classNode: ClassNode,
-    classTypeArgs: TypeArgDecls
+    classTypeArgs: Iterable<TypeArgumentDeclaration>
 ): ClassApi.Method {
-    val signature = if (method.signature != null) MethodSignature.readFrom(method.signature, classTypeArgs) else {
-        val descriptor = MethodDescriptor.fromDescriptorString(method.desc)
-        val parameters = getNonGeneratedParameterDescriptors(descriptor, method)
-        MethodSignature(
-            typeArguments = null, parameterTypes = parameters.map { it.toRawGenericType() },
-            returnType = descriptor.returnDescriptor.toRawGenericType(),
-            throwsSignatures = method.exceptions.map { ClassGenericType.fromRawClassString(it) }
-        )
-    }
-    val parameterNames = inferParameterNames(method, /*classNode,*/ signature.parameterTypes.size)
+    val signature = MethodSignature.fromAsmMethodNode(method,classTypeArgs)
+    val parameterNames = inferParameterNames(method,  signature.parameterTypes.size)
 
     val visibility = method.visibility
 
     return ClassApi.Method(
         name = method.name,
-        typeArguments = signature.typeArguments ?: listOf(),
+        typeArguments = signature.typeArguments,
         returnType = JavaReturnType(
             signature.returnType,
             annotations = parseAnnotations(method.visibleAnnotations, method.invisibleAnnotations)

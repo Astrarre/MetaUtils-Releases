@@ -1,5 +1,6 @@
 package metautils.signature
 
+import metautils.types.classFileName
 import metautils.util.includeIf
 import metautils.util.toSlashString
 
@@ -23,12 +24,12 @@ fun FieldSignature.toClassfileName(): String = when (this) {
 private fun TypeArgumentDeclaration.toClassfileName(): String = "$name:${classBound?.toClassfileName().orEmpty()}" +
         interfaceBounds.joinToString("") { ":${it.toClassfileName()}" }
 
-private fun List<TypeArgumentDeclaration>?.toDeclClassfileName() = if (this == null) ""
+private fun List<TypeArgumentDeclaration>.toDeclClassfileName() = if (this.isEmpty()) ""
 else "<" + joinToString("") { it.toClassfileName() } + ">"
 
 private fun GenericReturnType.toClassfileName(): String = when (this) {
     is FieldSignature -> toClassfileName()
-    GenericReturnType.Void -> "V"
+   VoidGenericReturnType -> "V"
 }
 
 
@@ -47,5 +48,5 @@ private fun WildcardType.toClassfileName() = when (this) {
 
 private fun List<GenericReturnType>.toClassfileName() = joinToString("") { it.toClassfileName() }
 
-private fun List<TypeArgument>?.toArgClassfileName() = if (this == null) ""
+private fun List<TypeArgument>.toArgClassfileName() = if (this.isEmpty()) ""
 else "<" + joinToString("") { it.toClassfileName() } + ">"

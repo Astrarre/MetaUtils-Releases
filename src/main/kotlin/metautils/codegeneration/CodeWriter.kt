@@ -143,7 +143,7 @@ fun GenericReturnType.toTypeName(): TypeName = when (this) {
     is ClassGenericType -> toTypeName()
     is TypeVariable -> TypeVariableName.get(name)
     is ArrayGenericType -> ArrayTypeName.of(componentType.toTypeName())
-    GenericReturnType.Void -> TypeName.VOID
+    VoidGenericReturnType -> TypeName.VOID
 }
 
 private fun ClassGenericType.toTypeName(): TypeName {
@@ -154,16 +154,16 @@ private fun ClassGenericType.toTypeName(): TypeName {
 //        "Inner class type arguments cannot be translated to a JavaPoet representation"
 //    }
 
-    val isGenericType = classNameSegments.any { it.typeArguments != null }
+    val isGenericType = classNameSegments.any { it.typeArguments.isNotEmpty() }
 
     val outerRawType = ClassName.get(
-            packageName?.toDotString() ?: "",
+            packageName.toDotString(),
             classNameSegments[0].name,
             *(if (isGenericType) arrayOf() else innerClasses.map { it.name }.toTypedArray())
     )
 
     return if (!isGenericType) outerRawType else {
-        if (outerClassArgs == null) {
+        if (outerClassArgs.isEmpty()) {
             when (innerClasses.size) {
                 0 -> outerRawType
                 1 -> ParameterizedTypeName.get(
@@ -171,8 +171,8 @@ private fun ClassGenericType.toTypeName(): TypeName {
                         *innerClasses[0].typeArguments.toTypeName().toTypedArray()
                 )
                 else -> {
-                    if (innerClasses[0].typeArguments == null) {
-                        assert(innerClasses[1].typeArguments != null)
+                    if (innerClasses[0].typeArguments.isEmpty()) {
+                        assert(innerClasses[1].typeArguments.isNotEmpty())
                         ParameterizedTypeName.get(
                                 outerRawType.nestedClass(innerClasses[0].name).nestedClass(innerClasses[1].name),
                                 *innerClasses[1].typeArguments.toTypeName().toTypedArray()

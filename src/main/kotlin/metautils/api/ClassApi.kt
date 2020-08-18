@@ -8,6 +8,7 @@ import metautils.codegeneration.Visibility
 import metautils.internal.visiting
 import metautils.signature.TypeArgumentDeclaration
 import metautils.signature.toJvmType
+import metautils.types.classFileName
 import metautils.util.*
 
 

@@ -16,11 +16,12 @@ import metautils.signature.toJvmType
 import metautils.types.JvmReturnType
 import metautils.types.MethodDescriptor
 import metautils.types.ObjectType
+import metautils.types.classFileName
 import java.nio.file.Path
 
 
 private fun GenericReturnType.hasGenericsInvolved() = this is TypeVariable
-        || getContainedClassesRecursively().any { type -> type.classNameSegments.any { it.typeArguments != null } }
+        || getContainedClassesRecursively().any { type -> type.classNameSegments.any { it.typeArguments.isNotEmpty() } }
 
 internal fun JavaReturnType.asmType(): Type = toJvmType().asmType()
 internal fun JvmReturnType.asmType(): Type = Type.getType(classFileName)
@@ -33,7 +34,7 @@ private fun writeClassImpl(
 ): Unit = with(info) {
     val genericsInvolved = typeArguments.isNotEmpty() || superClass?.type?.hasGenericsInvolved() == true
             || superInterfaces.any { it.type.hasGenericsInvolved() }
-    val signature = if (genericsInvolved) ClassSignature(typeArguments = typeArguments.let { if (it.isEmpty()) null else it },
+    val signature = if (genericsInvolved) ClassSignature(typeArguments = typeArguments,
             superClass = superClass?.type ?: JavaLangObjectGenericType,
             superInterfaces = superInterfaces.map { it.type }
         ) else null
@@ -190,7 +191,7 @@ private class AsmGeneratedClass(
         val genericsInvolved = typeArguments.isNotEmpty() || parameters.any { it.type.type.hasGenericsInvolved() }
                 || returnType.type.hasGenericsInvolved()
         val signature = if (genericsInvolved) {
-            MethodSignature(typeArguments.let { if(it.isEmpty()) null else it },
+            MethodSignature(typeArguments,
                 parameters.map { it.type.type }, returnType.type, throws.generics()
             )
         } else null

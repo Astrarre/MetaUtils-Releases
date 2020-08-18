@@ -1,7 +1,8 @@
+@file:Suppress("UNCHECKED_CAST")
+
 package metautils.api
 
 import metautils.internal.visiting
-import metautils.types.FieldType
 import metautils.types.JvmType
 import metautils.types.ObjectType
 import metautils.signature.*
@@ -13,11 +14,12 @@ import org.objectweb.asm.tree.AnnotationNode
 // but those are rarely used, only exist in newer versions of jetbrains annotations, and even modern decompilers
 // don't know how to decompile them, so it's fine to omit them here
 data class JavaType<out T : GenericReturnType>(val type: T, val annotations: List<JavaAnnotation>) :
-    Visitable by visiting(annotations, type) {
+    NameTree<JavaType<T>> , Visitable by visiting(annotations, type) {
     companion object {
         fun fromRawClassName(name: String) = ClassGenericType.fromRawClassString(name).noAnnotations()
     }
     override fun toString(): String = annotations.joinToString("") { "$it " } + type
+    override fun map(mapper: (QualifiedName) -> QualifiedName): JavaType<T> = copy(type = type.map(mapper) as T)
 }
 typealias JavaClassType = JavaType<ClassGenericType>
 //typealias JavaSuperType = JavaType<ClassGenericType>
@@ -31,11 +33,13 @@ data class JavaAnnotation private constructor(val type: ObjectType, val paramete
     companion object {
         //TODO: cache @Nullable and @Nonull annotations
         fun fromAsmNode(node: AnnotationNode) =
-            JavaAnnotation(FieldType.fromDescriptorString(node.desc) as ObjectType, parseRawAnnotationValues(node.values))
+            JavaAnnotation(JvmType.fromDescriptorString(node.desc) as ObjectType, parseRawAnnotationValues(node.values))
         fun fromRawJvmClassName(name: String) =
             JavaAnnotation(ObjectType.fromClassName(name, slashQualified = true), parameters = mapOf())
 
     }
+
+//    override fun map(mapper: (QualifiedName) -> QualifiedName) = copy(type = type.map(mapper))
 }
 
 sealed class AnnotationValue : Visitable {
@@ -54,8 +58,8 @@ sealed class AnnotationValue : Visitable {
     class ClassType(val type: JvmType) : AnnotationValue(), Visitable by visiting(type)
 }
 
-fun <T : GenericReturnType> JavaType<T>.remap(mapper: (className: QualifiedName) -> QualifiedName?) =
-    copy(type = type.remap(mapper))
+//fun <T : GenericReturnType> JavaType<T>.remap(mapper: (className: QualifiedName) -> QualifiedName) =
+//    copy(type = type.map(mapper))
 
 
 

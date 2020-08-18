@@ -1,47 +1,105 @@
-package metautils.signature
+package metautils.internal
 
+import metautils.signature.*
+import metautils.signature.baseTypesGenericsMap
+import metautils.types.JvmType
+import metautils.types.MethodDescriptor
 import metautils.util.PackageName
+import metautils.util.QualifiedName
 import metautils.util.applyIf
+import metautils.util.mapElements
+import org.objectweb.asm.tree.ClassNode
+import org.objectweb.asm.tree.MethodNode
+
+internal fun ClassGenericType.remapTopLevel(mapper: (className: QualifiedName) -> QualifiedName?): ClassGenericType {
+    val asQualifiedName = toJvmQualifiedName()
+    val asMappedQualifiedName = mapper(asQualifiedName) ?: asQualifiedName
+    val mappedPackage = asMappedQualifiedName.packageName
+
+    val mappedClasses = classNameSegments.zip(asMappedQualifiedName.shortName.components).map { (oldName, mappedName) ->
+        SimpleClassGenericType(name = mappedName, typeArguments = oldName.typeArguments)
+    }
+
+    return ClassGenericType(mappedPackage, mappedClasses)
+}
+
+internal fun ClassGenericType.remapTypeArguments(mapper: (className: QualifiedName) -> QualifiedName) =
+        copy(classNameSegments = classNameSegments.map { it.copy(typeArguments = it.typeArguments.mapElements(mapper)) })
+
+internal fun ClassGenericType.remap(mapper: (className: QualifiedName) -> QualifiedName) = remapTopLevel(mapper)
+        .remapTypeArguments(mapper)
+
+
+internal fun classSignatureFromAsmClassNode(classNode: ClassNode, outerClassTypeArgs: Iterable<TypeArgumentDeclaration>?)= if (classNode.signature != null) {
+    ClassSignature.fromSignatureString(classNode.signature,
+        outerClassTypeArgs = outerClassTypeArgs
+    )
+} else {
+    ClassSignature(
+        superClass = ClassGenericType.fromRawClassString(classNode.superName),
+        superInterfaces = classNode.interfaces.map {
+            ClassGenericType.fromRawClassString(it)
+        },
+        typeArguments = listOf()
+    )
+}
+
+internal fun methodSignatureFromAsmMethodNode(method: MethodNode, classTypeArgs: Iterable<TypeArgumentDeclaration>?)
+        = if (method.signature != null)  MethodSignature.fromSignatureString(method.signature, classTypeArgs) else {
+    val descriptor = MethodDescriptor.fromDescriptorString(method.desc)
+    val parameters = getNonGeneratedParameterDescriptors(descriptor, method)
+    MethodSignature(
+        typeArguments = listOf(), parameterTypes = parameters.map { it.toRawGenericType() },
+        returnType = descriptor.returnDescriptor.toRawGenericType(),
+        throwsSignatures = method.exceptions.map { ClassGenericType.fromRawClassString(it) }
+    )
+}
+
+// Generated parameters are generated $this garbage that come from for example inner classes
+private fun getNonGeneratedParameterDescriptors(
+    descriptor: MethodDescriptor,
+    method: MethodNode
+): List<JvmType> {
+    if (method.parameters == null) return descriptor.parameterDescriptors
+    val generatedIndices = method.parameters.mapIndexed { i, node -> i to node }.filter { '$' in it.second.name }
+        .map { it.first }
+
+    return descriptor.parameterDescriptors.filterIndexed { i, _ -> i !in generatedIndices }
+}
 
 typealias TypeArgDecls = Map<String, TypeArgumentDeclaration>
 
-// If the type args are null it won't try to resolve type argument declarations when it can't
-fun ClassSignature.Companion.readFrom(signature: String, outerClassTypeArgs : TypeArgDecls?): ClassSignature =
-    SignatureReader(signature, outerClassTypeArgs.orEmpty(),outerClassTypeArgs != null).readClass()
 
-fun MethodSignature.Companion.readFrom(signature: String, classTypeArgs: TypeArgDecls?): MethodSignature =
-    SignatureReader(signature, classTypeArgs.orEmpty(),classTypeArgs != null).readMethod()
 
-fun GenericTypeOrPrimitive.Companion.readFrom(signature: String, classTypeArgs: TypeArgDecls?): FieldSignature =
-    SignatureReader(signature, classTypeArgs.orEmpty(),classTypeArgs != null).readField()
 
-private const val doChecks = true
+
+private const val doChecks = false
 
 private val StubTypeArgDecl = TypeArgumentDeclaration("", null, listOf())
 
 @Suppress("NOTHING_TO_INLINE")
 @OptIn(ExperimentalStdlibApi::class)
-private class SignatureReader(private val signature: String, typeVariableDeclarations: TypeArgDecls,
-                              private val reResolveTypeArgumentDeclarations: Boolean) {
+internal class SignatureReader(private val signature: String, typeVariableDeclarations: Iterable<TypeArgumentDeclaration>?) {
     var progressPointer = 0
 
-    private val typeArgDeclarations = typeVariableDeclarations.toMutableMap()
+    private val typeArgDeclarations: MutableMap<String,TypeArgumentDeclaration> =
+        typeVariableDeclarations?.map { it.name to it }?.toMap()?.toMutableMap() ?: mutableMapOf()
     private var couldNotResolveSomeTypeArgumentDecls = false
 
-    private fun shouldReResolve() = couldNotResolveSomeTypeArgumentDecls && reResolveTypeArgumentDeclarations
+    private val shouldReResolve = couldNotResolveSomeTypeArgumentDecls && typeVariableDeclarations != null
 
     // In cases where there are recursive type argument bounds, we can't resolve the declarations of the bounds by reading
     // left to right. So after we finish reading we go over the TypeVariables and replace the stub declarations with the
     // real, resolved declarations.
 
     private fun ClassSignature.reResolveTypeArgumentDeclarations() = copy(
-        typeArguments = typeArguments?.mapTypeVariablesDecl { it.reResolve() },
+        typeArguments = typeArguments.mapTypeVariablesDecl { it.reResolve() },
         superClass = superClass.reResolve(),
         superInterfaces = superInterfaces.map { it.reResolve() }
     )
 
     private fun MethodSignature.reResolveTypeArgumentDeclarations() = copy(
-        typeArguments = typeArguments?.mapTypeVariablesDecl { it.reResolve() },
+        typeArguments = typeArguments.mapTypeVariablesDecl { it.reResolve() },
         parameterTypes = parameterTypes.map { it.reResolve() },
         returnType = returnType.reResolve(),
         throwsSignatures = throwsSignatures.map { it.reResolve() }
@@ -60,7 +118,7 @@ private class SignatureReader(private val signature: String, typeVariableDeclara
         val typeParamsMarker = signature[0]
         val formalTypeParameters = if (typeParamsMarker == '<') {
             readFormalTypeParameters()
-        } else null
+        } else listOf()
         val superClassSignature = readClassTypeSignature()
         val superInterfaceSignatures = readRepeatedly(
             until = { progressPointer == signature.length },
@@ -68,24 +126,24 @@ private class SignatureReader(private val signature: String, typeVariableDeclara
             skip = false
         )
         return ClassSignature(formalTypeParameters, superClassSignature, superInterfaceSignatures)
-            .applyIf(shouldReResolve()) { it.reResolveTypeArgumentDeclarations() }
+            .applyIf(shouldReResolve) { it.reResolveTypeArgumentDeclarations() }
     }
 
     fun readMethod(): MethodSignature {
-        val formalTypeParameters = if (current() == '<') readFormalTypeParameters() else null
+        val formalTypeParameters = if (current() == '<') readFormalTypeParameters() else listOf()
         advance('(')
         val parameterTypes = readRepeatedly(until = { current() == ')' }, reader = { readTypeSignature() }, skip = true)
-        val returnType = if (current() == 'V') GenericReturnType.Void.also { advance() } else readTypeSignature()
+        val returnType = if (current() == 'V') VoidGenericReturnType.also { advance() } else readTypeSignature()
         val throws = readRepeatedly(
             until = { progressPointer == signature.length },
             reader = { readThrowsSignature() },
             skip = false
         )
         return MethodSignature(formalTypeParameters, parameterTypes, returnType, throws)
-            .applyIf(shouldReResolve()) { it.reResolveTypeArgumentDeclarations() }
+            .applyIf(shouldReResolve) { it.reResolveTypeArgumentDeclarations() }
     }
 
-    fun readField(): FieldSignature = readFieldTypeSignature().applyIf(shouldReResolve()) { it.reResolve() }
+    fun readField(): FieldSignature = readFieldTypeSignature().applyIf(shouldReResolve) { it.reResolve() }
 
     private fun readThrowsSignature(): ThrowableType {
         advance('^')
@@ -135,7 +193,7 @@ private class SignatureReader(private val signature: String, typeVariableDeclara
         val identifier = readUntil(until = { it == '<' || it == '.' || it == '$' || it == ';' }, skip = false)
         val typeArguments = if (current() == '<') readTypeArguments()
         else {
-            null
+            listOf()
         }
         val current = current()
         if (current == '.' || current == '$') advance()

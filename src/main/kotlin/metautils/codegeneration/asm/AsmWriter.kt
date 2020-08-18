@@ -9,6 +9,7 @@ import metautils.signature.*
 import metautils.types.JvmType
 import metautils.types.MethodDescriptor
 import metautils.types.ObjectType
+import metautils.types.classFileName
 import metautils.util.*
 import org.objectweb.asm.ClassWriter
 import org.objectweb.asm.MethodVisitor

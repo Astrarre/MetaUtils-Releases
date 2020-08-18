@@ -2,6 +2,7 @@ package metautils.util
 
 import metautils.asm.readToClassNode
 import metautils.types.MethodDescriptor
+import metautils.types.classFileName
 import java.lang.reflect.Method
 import java.nio.file.FileSystem
 import java.nio.file.FileSystems

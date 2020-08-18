@@ -1,86 +1,85 @@
 package metautils.signature
 
-import metautils.internal.visiting
-import metautils.internal.fromPackageNameAndClassSegments
+import metautils.internal.*
 import metautils.types.JvmPrimitiveType
 import metautils.types.JvmPrimitiveTypes
+import metautils.types.classFileName
 import metautils.util.*
+import org.objectweb.asm.tree.ClassNode
+import org.objectweb.asm.tree.MethodNode
 
+typealias GenericReturnType = GenericReturnTypeGen<*>
+
+sealed class GenericReturnTypeGen<This : GenericReturnTypeGen<This>> : NameTree<This>
+
+object VoidGenericReturnType : GenericReturnTypeGen<VoidGenericReturnType>(), NameLeaf<VoidGenericReturnType> {
+    override fun toString(): String = "void"
+}
 
 interface Signature : Visitable
 
-//
-//fun GenericReturnType.visitNames(visitor: (QualifiedName) -> Unit): Unit = when (this) {
-//    is GenericsPrimitiveType, GenericReturnType.Void -> {
-//    }
-//    is GenericType -> visitNames(visitor)
-//}
-
 data class ClassSignature(
-        val typeArguments: List<TypeArgumentDeclaration>?,
-        val superClass: ClassGenericType,
-        val superInterfaces: List<ClassGenericType>
+    val typeArguments: List<TypeArgumentDeclaration>,
+    val superClass: ClassGenericType,
+    val superInterfaces: List<ClassGenericType>
 ) : Signature, Visitable by visiting(typeArguments, superInterfaces, superClass) {
-    init {
-        check(typeArguments == null || typeArguments.isNotEmpty())
-    }
 
-    companion object;
+    companion object {
+        //// If the type args are null it won't try to resolve type argument declarations when it can't
+        fun fromAsmClassNode(node: ClassNode, outerClassTypeArgs: Iterable<TypeArgumentDeclaration>?) =
+            classSignatureFromAsmClassNode(node, outerClassTypeArgs)
+
+        fun fromSignatureString(signature: String, outerClassTypeArgs: Iterable<TypeArgumentDeclaration>?) =
+            SignatureReader(signature, outerClassTypeArgs).readClass()
+    }
 
     override fun equals(other: Any?): Boolean = super.equals(other)
     override fun hashCode(): Int = super.hashCode()
 
 
-    override fun toString(): String = "<${typeArguments?.joinToString(", ")}> ".includeIf(typeArguments != null) +
+    override fun toString(): String = "<${typeArguments.joinToString(", ")}> ".includeIf(typeArguments.isNotEmpty()) +
             "(extends $superClass" + ", implements ".includeIf(superInterfaces.isNotEmpty()) +
             superInterfaces.joinToString(", ") + ")"
 }
 
 data class MethodSignature(
-        val typeArguments: List<TypeArgumentDeclaration>?,
-        val parameterTypes: List<GenericTypeOrPrimitive>,
-        val returnType: GenericReturnType,
-        val throwsSignatures: List<ThrowableType>
+    val typeArguments: List<TypeArgumentDeclaration>,
+    val parameterTypes: List<GenericTypeOrPrimitive>,
+    val returnType: GenericReturnType,
+    val throwsSignatures: List<ThrowableType>
 ) : Signature, Visitable by visiting(typeArguments, parameterTypes, throwsSignatures, returnType) {
-    init {
-        check(typeArguments == null || typeArguments.isNotEmpty())
-    }
 
     override fun equals(other: Any?): Boolean = super.equals(other)
     override fun hashCode(): Int = super.hashCode()
 
-    companion object;
+    companion object {
+        fun fromAsmMethodNode(node: MethodNode, classTypeArgs: Iterable<TypeArgumentDeclaration>?) : MethodSignature =
+            methodSignatureFromAsmMethodNode(node,classTypeArgs)
 
-//    override fun visitNames(visitor: NameVisitor) {
-//        typeArguments?.forEach { it.visitNames(visitor) }
-//        parameterTypes.forEach { it.visitNames(visitor) }
-//        returnType.visitNames(visitor)
-//        throwsSignatures.forEach { it.visitNames(visitor) }
-//    }
+        fun fromSignatureString(signature: String, classTypeArgs: Iterable<TypeArgumentDeclaration>?): MethodSignature =
+            SignatureReader(signature, classTypeArgs).readMethod()
+    }
 
-    override fun toString(): String = "<${typeArguments?.joinToString(", ")}> ".includeIf(typeArguments != null) +
+    override fun toString(): String = "<${typeArguments.joinToString(", ")}> ".includeIf(typeArguments.isNotEmpty()) +
             "(${parameterTypes.joinToString(", ")}): $returnType" +
             " throws ".includeIf(throwsSignatures.isNotEmpty()) + throwsSignatures.joinToString(", ")
 }
 
 typealias FieldSignature = GenericTypeOrPrimitive
 
-sealed class TypeArgument : Visitable {
+sealed class TypeArgument : NameTree<TypeArgument> {
     companion object;
-     data class SpecificType(val type: GenericType, val wildcardType: WildcardType?) : TypeArgument(), Visitable by visiting(type) {
-//        override fun visitNames(visitor: NameVisitor) {
-//            type.visitNames(visitor)
-//        }
-
-         override fun equals(other: Any?): Boolean = super.equals(other)
-         override fun hashCode(): Int = super.hashCode()
+    data class SpecificType(val type: GenericType, val wildcardType: WildcardType?) : TypeArgument(),
+        Visitable by visiting(type) {
+        override fun equals(other: Any?): Boolean = super.equals(other)
+        override fun hashCode(): Int = super.hashCode()
         override fun toString(): String = "? $wildcardType ".includeIf(wildcardType != null) + type
+        override fun map(mapper: (QualifiedName) -> QualifiedName): TypeArgument {
+            return copy(type = type.map(mapper))
+        }
     }
 
-    object AnyType : TypeArgument(), VisitLeaf {
-//        override fun visitNames(visitor: NameVisitor) {
-//
-//        }
+    object AnyType : TypeArgument(), NameLeaf<TypeArgument> {
 
         override fun toString(): String = "*"
     }
@@ -95,36 +94,31 @@ enum class WildcardType {
     }
 }
 
-sealed class GenericReturnType : Visitable {
-    object Void : GenericReturnType(), VisitLeaf {
-//        override fun visitNames(visitor: NameVisitor) {
-//
-//        }
+typealias GenericTypeOrPrimitive = GenericTypeOrPrimitiveGen<*>
 
-        override fun toString(): String = "void"
+//TODO: I think change the name of this class
+sealed class GenericTypeOrPrimitiveGen<This : GenericTypeOrPrimitiveGen<This>> : GenericReturnTypeGen<This>(),
+    Signature {
+    companion object {
+        fun fromFieldSignature(signature: String, classTypeArgs: Iterable<TypeArgumentDeclaration>?) =
+            SignatureReader(signature, classTypeArgs).readField()
     }
 }
 
-sealed class GenericTypeOrPrimitive : GenericReturnType(), Signature {
-    companion object
-}
-
 internal val baseTypesGenericsMap = mapOf(
-        JvmPrimitiveTypes.Byte.classFileName to GenericsPrimitiveType.Byte,
-        JvmPrimitiveTypes.Char.classFileName to GenericsPrimitiveType.Char,
-        JvmPrimitiveTypes.Double.classFileName to GenericsPrimitiveType.Double,
-        JvmPrimitiveTypes.Float.classFileName to GenericsPrimitiveType.Float,
-        JvmPrimitiveTypes.Int.classFileName to GenericsPrimitiveType.Int,
-        JvmPrimitiveTypes.Long.classFileName to GenericsPrimitiveType.Long,
-        JvmPrimitiveTypes.Short.classFileName to GenericsPrimitiveType.Short,
-        JvmPrimitiveTypes.Boolean.classFileName to GenericsPrimitiveType.Boolean
+    JvmPrimitiveTypes.Byte.classFileName to GenericsPrimitiveType.Byte,
+    JvmPrimitiveTypes.Char.classFileName to GenericsPrimitiveType.Char,
+    JvmPrimitiveTypes.Double.classFileName to GenericsPrimitiveType.Double,
+    JvmPrimitiveTypes.Float.classFileName to GenericsPrimitiveType.Float,
+    JvmPrimitiveTypes.Int.classFileName to GenericsPrimitiveType.Int,
+    JvmPrimitiveTypes.Long.classFileName to GenericsPrimitiveType.Long,
+    JvmPrimitiveTypes.Short.classFileName to GenericsPrimitiveType.Short,
+    JvmPrimitiveTypes.Boolean.classFileName to GenericsPrimitiveType.Boolean
 ).mapKeys { it.key[0] }
 
-class GenericsPrimitiveType private constructor(val primitive: JvmPrimitiveType) : GenericTypeOrPrimitive(), VisitLeaf {
-//    override fun visitNames(visitor: NameVisitor) {
-//
-//    }
-
+//TODO: change the name of this class
+class GenericsPrimitiveType private constructor(val primitive: JvmPrimitiveType) :
+    GenericTypeOrPrimitiveGen<GenericsPrimitiveType>(), NameLeaf<GenericsPrimitiveType> {
     override fun toString(): String = primitive.toString()
 
     companion object {
@@ -138,20 +132,22 @@ class GenericsPrimitiveType private constructor(val primitive: JvmPrimitiveType)
         val Boolean = GenericsPrimitiveType(JvmPrimitiveTypes.Boolean)
     }
 }
+typealias GenericType = GenericTypeGen<*>
+typealias ThrowableType = ThrowableTypeGen<*>
 
-sealed class GenericType : GenericTypeOrPrimitive() {
+sealed class GenericTypeGen<This : GenericTypeGen<This>> : GenericTypeOrPrimitiveGen<This>() {
     companion object
 }
 
-sealed class ThrowableType : GenericType()
+sealed class ThrowableTypeGen<This : ThrowableTypeGen<This>> : GenericTypeGen<This>()
 
 
 // Just for copy()
 data class TypeArgumentDeclaration(
-        val name: String,
-        val classBound: GenericType?,
-        val interfaceBounds: List<GenericType>
-) : Visitable by visiting(interfaceBounds, classBound) {
+    val name: String,
+    val classBound: GenericType?,
+    val interfaceBounds: List<GenericType>
+) : NameMappable<TypeArgumentDeclaration>, Visitable by visiting(interfaceBounds, classBound) {
     companion object;
 
     override fun equals(other: Any?): Boolean = super.equals(other)
@@ -159,58 +155,68 @@ data class TypeArgumentDeclaration(
 
     override fun toString(): String = name + " extends $classBound".includeIf(classBound != null) +
             " implements ".includeIf(interfaceBounds.isNotEmpty()) + interfaceBounds.joinToString(", ")
+
+    override fun map(mapper: (QualifiedName) -> QualifiedName) = copy(
+        classBound = classBound?.map(mapper),
+        interfaceBounds = interfaceBounds.mapElements(mapper)
+    )
 }
 
 
 data class ClassGenericType(
     val packageName: PackageName,
     /**
-         * Outer class and then inner classes
-         */
-        val classNameSegments: List<SimpleClassGenericType>
-) : ThrowableType(), Visitable by visiting(classNameSegments,
-    QualifiedName.fromPackageNameAndClassSegments(packageName, classNameSegments)) {
+     * Outer class and then inner classes
+     */
+    val classNameSegments: List<SimpleClassGenericType>
+) : ThrowableTypeGen<ClassGenericType>(), Visitable by visiting(
+    classNameSegments,
+    QualifiedName.fromPackageNameAndClassSegments(packageName, classNameSegments)
+) {
 
     override fun equals(other: Any?): Boolean = super.equals(other)
     override fun hashCode(): Int = super.hashCode()
 
     companion object;
 
-
     override fun toString(): String = classNameSegments.joinToString("$")
+    override fun map(mapper: (QualifiedName) -> QualifiedName): ClassGenericType = remap(mapper)
 }
 
 
-data class SimpleClassGenericType(val name: String, val typeArguments: List<TypeArgument>?) : Visitable by visiting(typeArguments) {
-    init {
-        if (typeArguments != null) require(typeArguments.isNotEmpty())
-    }
+data class SimpleClassGenericType(val name: String, val typeArguments: List<TypeArgument>) :
+    Visitable by visiting(typeArguments) {
+
 
     override fun equals(other: Any?): Boolean = super.equals(other)
     override fun hashCode(): Int = super.hashCode()
 
     override fun toString(): String =
-            if (typeArguments != null) "$name<${typeArguments.joinToString(", ")}>" else name
+        if (typeArguments.isNotEmpty()) "$name<${typeArguments.joinToString(", ")}>" else name
 }
 
 
-data class ArrayGenericType(val componentType: GenericTypeOrPrimitive) : GenericType(), Visitable by visiting(componentType) {
+data class ArrayGenericType(val componentType: GenericTypeOrPrimitive) : GenericTypeGen<ArrayGenericType>(),
+    Visitable by visiting(componentType) {
 
     override fun equals(other: Any?): Boolean = super.equals(other)
     override fun hashCode(): Int = super.hashCode()
 
     override fun toString(): String = "$componentType[]"
+    override fun map(mapper: (QualifiedName) -> QualifiedName) = copy(componentType = componentType.map(mapper))
 }
 
 /**
  * i.e. T, U
  */
-data class TypeVariable(val name: String, val declaration: TypeArgumentDeclaration) : ThrowableType(), Visitable by visiting(declaration) {
+data class TypeVariable(val name: String, val declaration: TypeArgumentDeclaration) : ThrowableTypeGen<TypeVariable>(),
+    Visitable by visiting(declaration) {
     companion object;
 
     override fun equals(other: Any?): Boolean = super.equals(other)
     override fun hashCode(): Int = super.hashCode()
 
     override fun toString(): String = name
+    override fun map(mapper: (QualifiedName) -> QualifiedName) = copy(declaration = declaration.map(mapper))
 }
 
