@@ -128,6 +128,16 @@ fun <T1 : T, T2 : T, T3 : T, T4 : T, T5 : T, T> combineLists(
     addNullable(el2)
 }
 
+fun <T>combineLists(
+    lists: List<List<T>>,
+    elements: List<T>,
+): List<T> = mutableListOf<T>().apply {
+    for (list in lists) {
+        for (element in list) add(element)
+    }
+    for (element in elements) add(element)
+}
+
 private fun <T> MutableList<T>.addAllNullable(collection: Collection<T>?) {
     if (collection != null) addAll(collection)
 }

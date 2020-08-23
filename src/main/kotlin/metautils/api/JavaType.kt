@@ -1,4 +1,4 @@
-@file:Suppress("UNCHECKED_CAST")
+@file:Suppress("UNCHECKED_CAST", "DataClassPrivateConstructor")
 
 package metautils.api
 
@@ -22,7 +22,6 @@ data class JavaType<out T : GenericReturnType>(val type: T, val annotations: Lis
     override fun map(mapper: (QualifiedName) -> QualifiedName): JavaType<T> = copy(type = type.map(mapper) as T)
 }
 typealias JavaClassType = JavaType<ClassGenericType>
-//typealias JavaSuperType = JavaType<ClassGenericType>
 typealias AnyJavaType = JavaType<GenericTypeOrPrimitive>
 typealias JavaReturnType = JavaType<GenericReturnType>
 typealias JavaThrowableType = JavaType<ThrowableType>
@@ -38,8 +37,6 @@ data class JavaAnnotation private constructor(val type: ObjectType, val paramete
             JavaAnnotation(ObjectType.fromClassName(name, slashQualified = true), parameters = mapOf())
 
     }
-
-//    override fun map(mapper: (QualifiedName) -> QualifiedName) = copy(type = type.map(mapper))
 }
 
 sealed class AnnotationValue : Visitable {
@@ -57,10 +54,6 @@ sealed class AnnotationValue : Visitable {
     class Enum(val type: ObjectType, val constant: String) : AnnotationValue(), Visitable by visiting(type)
     class ClassType(val type: JvmType) : AnnotationValue(), Visitable by visiting(type)
 }
-
-//fun <T : GenericReturnType> JavaType<T>.remap(mapper: (className: QualifiedName) -> QualifiedName) =
-//    copy(type = type.map(mapper))
-
 
 
 

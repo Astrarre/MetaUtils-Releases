@@ -9,6 +9,8 @@ import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.MethodNode
 
 typealias GenericReturnType = GenericReturnTypeGen<*>
+typealias ThrowableType = ThrowableTypeGen<*>
+
 
 sealed class GenericReturnTypeGen<This : GenericReturnTypeGen<This>> : NameTree<This>
 
@@ -18,7 +20,7 @@ object VoidGenericReturnType : GenericReturnTypeGen<VoidGenericReturnType>(), Na
 
 interface Signature : Visitable
 
-data class ClassSignature(
+/*data*/ class ClassSignature(
     val typeArguments: List<TypeArgumentDeclaration>,
     val superClass: ClassGenericType,
     val superInterfaces: List<ClassGenericType>
@@ -33,8 +35,8 @@ data class ClassSignature(
             SignatureReader(signature, outerClassTypeArgs).readClass()
     }
 
-    override fun equals(other: Any?): Boolean = super.equals(other)
-    override fun hashCode(): Int = super.hashCode()
+//    override fun equals(other: Any?): Boolean = super.equals(other)
+//    override fun hashCode(): Int = super.hashCode()
 
 
     override fun toString(): String = "<${typeArguments.joinToString(", ")}> ".includeIf(typeArguments.isNotEmpty()) +
@@ -42,15 +44,16 @@ data class ClassSignature(
             superInterfaces.joinToString(", ") + ")"
 }
 
-data class MethodSignature(
+
+/*data*/ class MethodSignature(
     val typeArguments: List<TypeArgumentDeclaration>,
     val parameterTypes: List<GenericTypeOrPrimitive>,
     val returnType: GenericReturnType,
     val throwsSignatures: List<ThrowableType>
 ) : Signature, Visitable by visiting(typeArguments, parameterTypes, throwsSignatures, returnType) {
 
-    override fun equals(other: Any?): Boolean = super.equals(other)
-    override fun hashCode(): Int = super.hashCode()
+//    override fun equals(other: Any?): Boolean = super.equals(other)
+//    override fun hashCode(): Int = super.hashCode()
 
     companion object {
         fun fromAsmMethodNode(node: MethodNode, classTypeArgs: Iterable<TypeArgumentDeclaration>?) : MethodSignature =
@@ -67,15 +70,18 @@ data class MethodSignature(
 
 typealias FieldSignature = GenericTypeOrPrimitive
 
+fun TypeArgument.SpecificType.withType(type: GenericType) =
+    TypeArgument.SpecificType(type = type, wildcardType)
+
 sealed class TypeArgument : NameTree<TypeArgument> {
     companion object;
-    data class SpecificType(val type: GenericType, val wildcardType: WildcardType?) : TypeArgument(),
+    /*data*/ class SpecificType(val type: GenericType, val wildcardType: WildcardType?) : TypeArgument(),
         Visitable by visiting(type) {
         override fun equals(other: Any?): Boolean = super.equals(other)
         override fun hashCode(): Int = super.hashCode()
         override fun toString(): String = "? $wildcardType ".includeIf(wildcardType != null) + type
         override fun map(mapper: (QualifiedName) -> QualifiedName): TypeArgument {
-            return copy(type = type.map(mapper))
+            return withType(type = type.map(mapper))
         }
     }
 
@@ -133,7 +139,7 @@ class GenericsPrimitiveType private constructor(val primitive: JvmPrimitiveType)
     }
 }
 typealias GenericType = GenericTypeGen<*>
-typealias ThrowableType = ThrowableTypeGen<*>
+
 
 sealed class GenericTypeGen<This : GenericTypeGen<This>> : GenericTypeOrPrimitiveGen<This>() {
     companion object
@@ -158,12 +164,12 @@ data class TypeArgumentDeclaration(
 
     override fun map(mapper: (QualifiedName) -> QualifiedName) = copy(
         classBound = classBound?.map(mapper),
-        interfaceBounds = interfaceBounds.mapElements(mapper)
+        interfaceBounds = interfaceBounds.mapElementsOld(mapper)
     )
 }
 
 
-data class ClassGenericType(
+/*data*/ class ClassGenericType(
     val packageName: PackageName,
     /**
      * Outer class and then inner classes
@@ -174,14 +180,12 @@ data class ClassGenericType(
     QualifiedName.fromPackageNameAndClassSegments(packageName, classNameSegments)
 ) {
 
-    override fun equals(other: Any?): Boolean = super.equals(other)
-    override fun hashCode(): Int = super.hashCode()
-
     companion object;
 
     override fun toString(): String = classNameSegments.joinToString("$")
     override fun map(mapper: (QualifiedName) -> QualifiedName): ClassGenericType = remap(mapper)
 }
+
 
 
 data class SimpleClassGenericType(val name: String, val typeArguments: List<TypeArgument>) :

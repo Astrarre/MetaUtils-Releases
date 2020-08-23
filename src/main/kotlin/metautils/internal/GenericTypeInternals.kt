@@ -7,7 +7,7 @@ import metautils.types.MethodDescriptor
 import metautils.util.PackageName
 import metautils.util.QualifiedName
 import metautils.util.applyIf
-import metautils.util.mapElements
+import metautils.util.mapElementsOld
 import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.MethodNode
 
@@ -24,7 +24,7 @@ internal fun ClassGenericType.remapTopLevel(mapper: (className: QualifiedName) -
 }
 
 internal fun ClassGenericType.remapTypeArguments(mapper: (className: QualifiedName) -> QualifiedName) =
-        copy(classNameSegments = classNameSegments.map { it.copy(typeArguments = it.typeArguments.mapElements(mapper)) })
+        withSegments(classNameSegments.map { it.copy(typeArguments = it.typeArguments.mapElementsOld(mapper)) })
 
 internal fun ClassGenericType.remap(mapper: (className: QualifiedName) -> QualifiedName) = remapTopLevel(mapper)
         .remapTypeArguments(mapper)
@@ -92,13 +92,13 @@ internal class SignatureReader(private val signature: String, typeVariableDeclar
     // left to right. So after we finish reading we go over the TypeVariables and replace the stub declarations with the
     // real, resolved declarations.
 
-    private fun ClassSignature.reResolveTypeArgumentDeclarations() = copy(
+    private fun ClassSignature.reResolveTypeArgumentDeclarations() = ClassSignature(
         typeArguments = typeArguments.mapTypeVariablesDecl { it.reResolve() },
         superClass = superClass.reResolve(),
         superInterfaces = superInterfaces.map { it.reResolve() }
     )
 
-    private fun MethodSignature.reResolveTypeArgumentDeclarations() = copy(
+    private fun MethodSignature.reResolveTypeArgumentDeclarations() = MethodSignature(
         typeArguments = typeArguments.mapTypeVariablesDecl { it.reResolve() },
         parameterTypes = parameterTypes.map { it.reResolve() },
         returnType = returnType.reResolve(),

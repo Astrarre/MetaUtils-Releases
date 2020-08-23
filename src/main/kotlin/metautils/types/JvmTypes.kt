@@ -2,6 +2,7 @@ package metautils.types
 
 import metautils.internal.jvmTypeFromDescriptorString
 import metautils.internal.methodDescriptorFromDescriptorString
+import metautils.internal.property
 import metautils.internal.visiting
 import metautils.util.*
 
@@ -10,9 +11,8 @@ typealias JvmType = JvmTypeGen<*>
 typealias JvmPrimitiveType = JvmPrimitiveTypes<*>
 
 
-
 data class ObjectType internal constructor(val fullClassName: QualifiedName) :
-    JvmTypeGen<ObjectType>(), Visitable by visiting(fullClassName) {
+    JvmTypeGen<ObjectType>(), Mappable<ObjectType> by property(fullClassName, ::ObjectType) {
     override fun toString() = fullClassName.shortName.toDotString()
 
     companion object {
@@ -27,18 +27,16 @@ data class ObjectType internal constructor(val fullClassName: QualifiedName) :
         }
     }
 
-    override fun map(mapper: (QualifiedName) -> QualifiedName) = copy(fullClassName = mapper(fullClassName))
-
 }
 
 data class ArrayType(val componentType: JvmType) : JvmTypeGen<ArrayType>(),
-    Visitable by visiting(componentType) {
+    Mappable<ArrayType> by property(componentType, constructor = ::ArrayType) {
     override fun toString() = "$componentType[]"
-    override fun map(mapper: (QualifiedName) -> QualifiedName) = copy(componentType = componentType.map(mapper))
+//    override fun map(mapper: (QualifiedName) -> QualifiedName) = copy(componentType = componentType.map(mapper))
 }
 
 sealed class JvmPrimitiveTypes<This : JvmPrimitiveTypes<This>> : JvmTypeGen<This>(),
-    NameLeaf<This> {
+    MappableLeaf<This> {
     object Byte : JvmPrimitiveTypes<Byte>() {
         override fun toString() = "byte"
     }
@@ -72,15 +70,15 @@ sealed class JvmPrimitiveTypes<This : JvmPrimitiveTypes<This>> : JvmTypeGen<This
     }
 }
 
-sealed class JvmReturnTypeGen<This : JvmReturnTypeGen<This>> : /*Descriptor(classFileName),*/
-    NameTree<This> {
+sealed class JvmReturnTypeGen<out This : JvmReturnTypeGen<This>> : /*Descriptor(classFileName),*/
+    Mappable<This> {
     companion object {
         val Void = VoidJvmReturnType
     }
 }
 
 
-object VoidJvmReturnType : JvmReturnTypeGen<VoidJvmReturnType>(), Leaf<VoidJvmReturnType, QualifiedName> {
+object VoidJvmReturnType : JvmReturnTypeGen<VoidJvmReturnType>(), MappableLeaf<VoidJvmReturnType> {
     override fun toString() = "void"
 }
 
@@ -94,7 +92,7 @@ sealed class JvmTypeGen<This : JvmTypeGen<This>> : JvmReturnTypeGen<This>() {
 data class MethodDescriptor internal constructor(
     val parameterDescriptors: List<JvmType>,
     val returnDescriptor: JvmReturnType
-): Visitable by visiting(parameterDescriptors, returnDescriptor) {
+) : Visitable by visiting(parameterDescriptors, returnDescriptor) {
     companion object {
         fun fromDescriptorString(descriptor: String) = methodDescriptorFromDescriptorString(descriptor)
     }
@@ -102,18 +100,19 @@ data class MethodDescriptor internal constructor(
     override fun toString() = "(${parameterDescriptors.joinToString(", ")}): $returnDescriptor"
 }
 
-val JvmReturnType.classFileName : String get() = when(this){
-    is ObjectType -> "L${fullClassName.toSlashString()};"
-    is ArrayType -> "[" + componentType.classFileName
-    JvmPrimitiveTypes.Byte -> "B"
-    JvmPrimitiveTypes.Char ->"C"
-    JvmPrimitiveTypes.Double -> "D"
-    JvmPrimitiveTypes.Float -> "F"
-    JvmPrimitiveTypes.Int -> "I"
-    JvmPrimitiveTypes.Long -> "J"
-    JvmPrimitiveTypes.Short -> "S"
-    JvmPrimitiveTypes.Boolean -> "Z"
-    else -> "V"
-}
+val JvmReturnType.classFileName: String
+    get() = when (this) {
+        is ObjectType -> "L${fullClassName.toSlashString()};"
+        is ArrayType -> "[" + componentType.classFileName
+        JvmPrimitiveTypes.Byte -> "B"
+        JvmPrimitiveTypes.Char -> "C"
+        JvmPrimitiveTypes.Double -> "D"
+        JvmPrimitiveTypes.Float -> "F"
+        JvmPrimitiveTypes.Int -> "I"
+        JvmPrimitiveTypes.Long -> "J"
+        JvmPrimitiveTypes.Short -> "S"
+        JvmPrimitiveTypes.Boolean -> "Z"
+        else -> "V"
+    }
 
 val MethodDescriptor.classFileName get() = "(${parameterDescriptors.joinToString("") { it.classFileName }})${returnDescriptor.classFileName}"

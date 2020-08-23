@@ -91,16 +91,22 @@ fun MethodSignature.toJvmDescriptor() = MethodDescriptor(
         returnDescriptor = returnType.toJvmType()
 )
 
+fun ClassSignature.addSuperInterface(superInterface: ClassGenericType) =
+    ClassSignature(typeArguments, superClass, superInterfaces + superInterface)
+
+
 //fun JavaType<*>.toJvmType() = type.toJvmType()
 fun JavaType<*>.toJvmType() : JvmReturnType = type.toJvmType()
 fun AnyJavaType.toJvmType(): JvmType = type.toJvmType()
 fun JavaClassType.toJvmType(): ObjectType = type.toJvmType()
 //fun JavaThrowableType.toJvmType() = type.toJvmType()
 
+fun ClassGenericType.withSegments(segments: List<SimpleClassGenericType>) =
+    ClassGenericType(packageName,segments)
 
 fun ClassGenericType.outerClass(): ClassGenericType {
     check(classNameSegments.size >= 2)
-    return copy(classNameSegments = classNameSegments.dropLast(1))
+    return withSegments(classNameSegments.dropLast(1))
 }
 
 fun JavaClassType.outerClass(): JavaClassType = copy(type = type.outerClass())
@@ -199,13 +205,12 @@ fun GenericType.mapTypeVariables(mapper: (TypeVariable) -> GenericType): Generic
 //}
 
 fun ClassGenericType.mapTypeVariables(mapper: (TypeVariable) -> GenericType): ClassGenericType =
-        copy(classNameSegments =
-        classNameSegments.map { it.copy(typeArguments = it.typeArguments.mapTypeVariables(mapper)) })
+        withSegments(classNameSegments.map { it.copy(typeArguments = it.typeArguments.mapTypeVariables(mapper)) })
 
 fun List<TypeArgument>.mapTypeVariables(mapper: (TypeVariable) -> GenericType): List<TypeArgument> =
         this.map {
             when (it) {
-                is TypeArgument.SpecificType -> it.copy(type = it.type.mapTypeVariables(mapper))
+                is TypeArgument.SpecificType -> it.withType(it.type.mapTypeVariables(mapper))
                 TypeArgument.AnyType -> it
             }
         }

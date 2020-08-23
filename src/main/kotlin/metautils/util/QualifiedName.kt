@@ -9,7 +9,7 @@ import metautils.internal.stringifyQualifiedName
 import java.nio.file.Path
 import java.nio.file.Paths
 
-data class QualifiedName internal constructor(val packageName: PackageName, val shortName: ShortClassName) : VisitLeaf{
+data class QualifiedName internal constructor(val packageName: PackageName, val shortName: ShortClassName) : /*VisitLeaf,*/ MappableLeaf<QualifiedName>{
     companion object {
         fun fromClassName(
             name: String,
