@@ -205,7 +205,7 @@ fun GenericType.mapTypeVariables(mapper: (TypeVariable) -> GenericType): Generic
 //}
 
 fun ClassGenericType.mapTypeVariables(mapper: (TypeVariable) -> GenericType): ClassGenericType =
-        withSegments(classNameSegments.map { it.copy(typeArguments = it.typeArguments.mapTypeVariables(mapper)) })
+        withSegments(classNameSegments.map { it.withArguments(it.typeArguments.mapTypeVariables(mapper)) })
 
 fun List<TypeArgument>.mapTypeVariables(mapper: (TypeVariable) -> GenericType): List<TypeArgument> =
         this.map {

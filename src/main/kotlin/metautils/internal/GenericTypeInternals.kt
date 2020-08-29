@@ -11,26 +11,26 @@ import metautils.util.mapElementsOld
 import org.objectweb.asm.tree.ClassNode
 import org.objectweb.asm.tree.MethodNode
 
-internal fun ClassGenericType.remapTopLevel(mapper: (className: QualifiedName) -> QualifiedName?): ClassGenericType {
-    val asQualifiedName = toJvmQualifiedName()
-    val asMappedQualifiedName = mapper(asQualifiedName) ?: asQualifiedName
-    val mappedPackage = asMappedQualifiedName.packageName
+//internal fun ClassGenericType.remapTopLevel(mapper: (className: QualifiedName) -> QualifiedName?): ClassGenericType {
+//    val asQualifiedName = toJvmQualifiedName()
+//    val asMappedQualifiedName = mapper(asQualifiedName) ?: asQualifiedName
+//    val mappedPackage = asMappedQualifiedName.packageName
+//
+//    val mappedClasses = classNameSegments.zip(asMappedQualifiedName.shortName.components).map { (oldName, mappedName) ->
+//        SimpleClassGenericType(name = mappedName, typeArguments = oldName.typeArguments)
+//    }
+//
+//    return ClassGenericType(mappedPackage, mappedClasses)
+//}
 
-    val mappedClasses = classNameSegments.zip(asMappedQualifiedName.shortName.components).map { (oldName, mappedName) ->
-        SimpleClassGenericType(name = mappedName, typeArguments = oldName.typeArguments)
-    }
+//internal fun ClassGenericType.remapTypeArguments(mapper: (className: QualifiedName) -> QualifiedName) =
+//        withSegments(classNameSegments.map { it.withArguments(it.typeArguments.mapElementsOld(mapper)) })
 
-    return ClassGenericType(mappedPackage, mappedClasses)
-}
-
-internal fun ClassGenericType.remapTypeArguments(mapper: (className: QualifiedName) -> QualifiedName) =
-        withSegments(classNameSegments.map { it.copy(typeArguments = it.typeArguments.mapElementsOld(mapper)) })
-
-internal fun ClassGenericType.remap(mapper: (className: QualifiedName) -> QualifiedName) = remapTopLevel(mapper)
-        .remapTypeArguments(mapper)
+//internal fun ClassGenericType.remap(mapper: (className: QualifiedName) -> QualifiedName) = remapTopLevel(mapper)
+//        .remapTypeArguments(mapper)
 
 
-internal fun classSignatureFromAsmClassNode(classNode: ClassNode, outerClassTypeArgs: Iterable<TypeArgumentDeclaration>?)= if (classNode.signature != null) {
+internal fun classSignatureFromAsmClassNode(classNode: ClassNode, outerClassTypeArgs: Iterable<TypeArgumentDeclaration>?): ClassSignature = if (classNode.signature != null) {
     ClassSignature.fromSignatureString(classNode.signature,
         outerClassTypeArgs = outerClassTypeArgs
     )

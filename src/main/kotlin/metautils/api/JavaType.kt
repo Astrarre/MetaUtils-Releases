@@ -2,6 +2,8 @@
 
 package metautils.api
 
+import metautils.internal.properties
+import metautils.internal.property
 import metautils.internal.visiting
 import metautils.types.JvmType
 import metautils.types.ObjectType
@@ -14,35 +16,37 @@ import org.objectweb.asm.tree.AnnotationNode
 // but those are rarely used, only exist in newer versions of jetbrains annotations, and even modern decompilers
 // don't know how to decompile them, so it's fine to omit them here
 data class JavaType<out T : GenericReturnType>(val type: T, val annotations: List<JavaAnnotation>) :
-    NameTree<JavaType<T>> , Visitable by visiting(annotations, type) {
+    Mappable<JavaType<T>>  by properties(type,annotations, {newType, ano -> JavaType(newType as T,ano)}) {
     companion object {
         fun fromRawClassName(name: String) = ClassGenericType.fromRawClassString(name).noAnnotations()
     }
     override fun toString(): String = annotations.joinToString("") { "$it " } + type
-    override fun map(mapper: (QualifiedName) -> QualifiedName): JavaType<T> = copy(type = type.map(mapper) as T)
+//    override fun map(mapper: (QualifiedName) -> QualifiedName): JavaType<T> = copy(type = type.map(mapper) as T)
 }
 typealias JavaClassType = JavaType<ClassGenericType>
 typealias AnyJavaType = JavaType<GenericTypeOrPrimitive>
 typealias JavaReturnType = JavaType<GenericReturnType>
 typealias JavaThrowableType = JavaType<ThrowableType>
 
-data class JavaAnnotation private constructor(val type: ObjectType, val parameters: Map<String, AnnotationValue>) :
-    Visitable by visiting(parameters.values, type) {
+/*data*/ class JavaAnnotation private constructor(val type: ObjectType,  parameters: List<Pair<String, AnnotationValue>>) :
+    Mappable<JavaAnnotation> by properties(type,parameters.values,
+        {newType, params -> JavaAnnotation(newType,params.mapIndexed { index, value -> parameters[index].first to value })}) {
+    val parameters: Map<String,AnnotationValue> = parameters.toMap()
     override fun toString(): String = "@$type"
     companion object {
         //TODO: cache @Nullable and @Nonull annotations
         fun fromAsmNode(node: AnnotationNode) =
-            JavaAnnotation(JvmType.fromDescriptorString(node.desc) as ObjectType, parseRawAnnotationValues(node.values))
+            JavaAnnotation(JvmType.fromDescriptorString(node.desc) as ObjectType, parseRawAnnotationValues(node.values).map { (k,v) -> k to v })
         fun fromRawJvmClassName(name: String) =
-            JavaAnnotation(ObjectType.fromClassName(name, slashQualified = true), parameters = mapOf())
+            JavaAnnotation(ObjectType.fromClassName(name, slashQualified = true), parameters = listOf())
 
     }
 }
 
-sealed class AnnotationValue : Visitable {
-    class Array(val components: List<AnnotationValue>) : AnnotationValue(), Visitable by visiting(components)
-    class Annotation(val annotation: JavaAnnotation) : AnnotationValue(), Visitable by visiting(annotation)
-    sealed class Primitive : AnnotationValue(), VisitLeaf {
+sealed class AnnotationValue : Mappable<AnnotationValue> {
+    class Array(val components: List<AnnotationValue>) : AnnotationValue(), Mappable<AnnotationValue> by property(components,::Array)
+    class Annotation(val annotation: JavaAnnotation) : AnnotationValue(), Mappable<AnnotationValue> by property(annotation,::Annotation)
+    sealed class Primitive : AnnotationValue(), Leaf<AnnotationValue> {
         abstract val primitive: Any
 
         class Num(override val primitive: Number) : Primitive()
@@ -51,8 +55,8 @@ sealed class AnnotationValue : Visitable {
         class Str(override val primitive: String) : Primitive()
     }
 
-    class Enum(val type: ObjectType, val constant: String) : AnnotationValue(), Visitable by visiting(type)
-    class ClassType(val type: JvmType) : AnnotationValue(), Visitable by visiting(type)
+    class Enum(val type: ObjectType, val constant: String) : AnnotationValue(), Mappable<AnnotationValue> by property(type,{Enum(it,constant)})
+    class ClassType(val type: JvmType) : AnnotationValue(), Mappable<AnnotationValue> by property(type,::ClassType)
 }
 
 

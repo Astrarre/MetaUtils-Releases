@@ -57,9 +57,31 @@ internal fun <T1 : Visitable, L1 : Collection<T1>, T2 : Visitable, L2 : Collecti
     }
 
 
-fun <T : Mappable<T>, Owner : Mappable<Owner>> property(value: T, constructor: (T) -> Owner): Mappable<Owner> =
+internal fun <T : Mappable<T>, Owner : Mappable<Owner>> property(value: T, constructor: (T) -> Owner): Mappable<Owner> =
     propertiesImpl(listOf(value)) { constructor(this[0] as T) }
 
+internal fun <T : Mappable<T>, Owner : Mappable<Owner>> property(value: List<T>, constructor: (List<T>) -> Owner): Mappable<Owner> =
+    properties1(value,constructor)
+
+internal fun <T1 : Mappable<T1>, T2 : Mappable<T2>, S : Mappable<S>, Owner : Mappable<Owner>>
+        properties(list1: List<T1>, list2: List<T2>, single: S, constructor: (List<T1>, List<T2>, S) -> Owner
+): Mappable<Owner> {
+    return properties3(list1, list2, single, constructor)
+}
+
+internal fun <T1 : Mappable<T1>, T2 : Mappable<T2>, Owner : Mappable<Owner>>
+        properties(prop1: T1, prop2: T2, constructor: (T1,T2) -> Owner): Mappable<Owner> {
+    return properties2(prop1, prop2, constructor)
+}
+
+internal fun <T1 : Mappable<T1>, T2 : Mappable<T2>, I : Iterable<T2>, Owner : Mappable<Owner>>
+        properties(prop1: T1, prop2: I, constructor: (T1,I) -> Owner): Mappable<Owner> {
+    return properties2(prop1, prop2, constructor)
+}
+internal fun <T1 : Mappable<T1>, T2 : Mappable<T2>, Owner : Mappable<Owner>>
+        nullableProperties(prop1: T1?, prop2: List<T2>, constructor: (T1?,List<T2>) -> Owner): Mappable<Owner> {
+    return properties2(prop1, prop2, constructor)
+}
 
 //data class Flat()
 
@@ -67,7 +89,7 @@ private fun calculateRanges(vararg elements: Any?): List<IntRange> {
     var currentIndex = 0
     return elements.map {
         when (it) {
-            is Mappable<*> -> {
+            is Mappable<*>? -> {
                 val range = currentIndex..currentIndex
                 currentIndex++
                 range
@@ -82,11 +104,11 @@ private fun calculateRanges(vararg elements: Any?): List<IntRange> {
     }
 }
 
-private fun combineProperties(vararg properties: Any?): List<Mappable<*>> {
-    return mutableListOf<Mappable<*>>().apply {
+private fun combineProperties(vararg properties: Any?): List<Mappable<*>?> {
+    return mutableListOf<Mappable<*>?>().apply {
         for (property in properties) {
             when (property) {
-                is Mappable<*> -> {
+                is Mappable<*>? -> {
                     add(property)
                 }
                 is Collection<*> -> {
@@ -101,7 +123,7 @@ private fun combineProperties(vararg properties: Any?): List<Mappable<*>> {
 
 @Suppress("IMPLICIT_CAST_TO_ANY")
 private fun <T> List<Mappable<*>?>.prop(range: IntRange, prop: T): T {
-    return if (prop is Mappable<*>) {
+    return if (prop is Mappable<*>?) {
         check(range.first == range.last)
         this[range.first]
     } else {
@@ -122,11 +144,29 @@ private inline fun <T1, T2, T3, Owner : Mappable<Owner>> properties3(
     }
 }
 
-internal fun <T1 : Mappable<T1>, T2 : Mappable<T2>, S : Mappable<S>, Owner : Mappable<Owner>>
-        properties(list1: List<T1>, list2: List<T2>, single: S, constructor: (List<T1>, List<T2>, S) -> Owner
+private inline fun <T1, T2, Owner : Mappable<Owner>> properties2(
+    prop1: T1,
+    prop2: T2,
+    crossinline constructor: (T1, T2) -> Owner
 ): Mappable<Owner> {
-    return properties3(list1, list2, single, constructor)
+    val ranges = calculateRanges(prop1, prop2)
+    return propertiesImpl(prop1, prop2) {
+        constructor(prop(ranges[0], prop1), prop(ranges[1], prop2))
+    }
 }
+
+private inline fun <T1, Owner : Mappable<Owner>> properties1(
+    prop1: T1,
+    crossinline constructor: (T1) -> Owner
+): Mappable<Owner> {
+    val ranges = calculateRanges(prop1)
+    return propertiesImpl(prop1) {
+        constructor(prop(ranges[0], prop1))
+    }
+}
+
+
+
 //
 //internal fun <T1 : Visitable, L1 : Collection<T1>, T2 : Visitable, L2 : Collection<T2>, T3 : Visitable, L3 : Collection<T3>>
 //        visiting(list1: L1?, list2: L2?, list3: L3?, single1: Visitable?) = visiting {
@@ -162,7 +202,7 @@ private fun <Owner : Mappable<Owner>> propertiesImpl(
 ) = propertiesImpl(combineProperties(*values),constructor)
 
 private fun <Owner : Mappable<Owner>> propertiesImpl(
-    values: List<Mappable<*>>,
+    values: List<Mappable<*>?>,
     constructor: List<Mappable<*>?>.() -> Owner
 ) = object : Mappable<Owner> {
     override val fields: List<Mappable<*>?> = values

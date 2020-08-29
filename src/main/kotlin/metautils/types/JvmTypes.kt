@@ -36,7 +36,7 @@ data class ArrayType(val componentType: JvmType) : JvmTypeGen<ArrayType>(),
 }
 
 sealed class JvmPrimitiveTypes<This : JvmPrimitiveTypes<This>> : JvmTypeGen<This>(),
-    MappableLeaf<This> {
+    Leaf<This> {
     object Byte : JvmPrimitiveTypes<Byte>() {
         override fun toString() = "byte"
     }
@@ -78,7 +78,7 @@ sealed class JvmReturnTypeGen<out This : JvmReturnTypeGen<This>> : /*Descriptor(
 }
 
 
-object VoidJvmReturnType : JvmReturnTypeGen<VoidJvmReturnType>(), MappableLeaf<VoidJvmReturnType> {
+object VoidJvmReturnType : JvmReturnTypeGen<VoidJvmReturnType>(), Leaf<VoidJvmReturnType> {
     override fun toString() = "void"
 }
 

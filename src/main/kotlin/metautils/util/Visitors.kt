@@ -2,8 +2,6 @@
 
 package metautils.util
 
-import metautils.internal.properties
-import metautils.internal.property
 import metautils.internal.visitNamesInternal
 import kotlin.reflect.KClass
 
@@ -33,7 +31,7 @@ interface VisitLeaf : Visitable {
     override fun visitDirectChildren(visitor: (Visitable) -> Unit) {}
 }
 
-interface Leaf<T : Leaf<T, M>, M> : VisitLeaf, OldMappable<T, M> {
+interface OldLeaf<T : OldLeaf<T, M>, M> : VisitLeaf, OldMappable<T, M> {
     override fun map(mapper: (M) -> M): T {
         return this as T
     }
@@ -41,7 +39,7 @@ interface Leaf<T : Leaf<T, M>, M> : VisitLeaf, OldMappable<T, M> {
 
 typealias NameTree<T> = Tree<T, QualifiedName>
 typealias NameMappable<T> = OldMappable<T, QualifiedName>
-typealias NameLeaf<T> = Leaf<T, QualifiedName>
+typealias NameLeaf<T> = OldLeaf<T, QualifiedName>
 
 
 fun Visitable.getDirectChildren() = mutableListOf<Visitable>().apply { visitDirectChildren { add(it) } }
@@ -70,7 +68,7 @@ interface Mappable<out This : Mappable<This>> : Visitable {
     }
 }
 
-interface MappableLeaf<This : Mappable<This>> : Mappable<This> {
+interface Leaf<This : Mappable<This>> : Mappable<This> {
     override val fields: List<Mappable<*>?> get() = listOf()
     override fun constructor(newValues: List<Mappable<*>?>): This = this as This
 }
