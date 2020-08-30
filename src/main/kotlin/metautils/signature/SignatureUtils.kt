@@ -7,9 +7,9 @@ import metautils.internal.fromPackageNameAndClassSegments
 import metautils.types.*
 import metautils.util.*
 
-val JavaLangObjectGenericType = QualifiedName.Object.toRawGenericType()
-val JavaLangObjectJavaType = AnyJavaType(JavaLangObjectGenericType, annotations = listOf())
-val VoidJavaType = VoidJvmReturnType.toRawGenericType().noAnnotations()
+
+//val JavaLangObjectJavaType = AnyJavaType(JavaLangObjectGenericType, annotations = listOf())
+//val VoidJavaType = VoidJvmReturnType.toRawGenericType().noAnnotations()
 
 //fun TypeArgumentDeclaration.remap(mapper: (className: QualifiedName) -> QualifiedName?): TypeArgumentDeclaration =
 //        copy(classBound = classBound?.remap(mapper), interfaceBounds = interfaceBounds.map { it.remap(mapper) })
@@ -43,20 +43,17 @@ fun GenericReturnType.visitContainedClasses(visitor: (ClassGenericType) -> Unit)
 }
 
 
-fun ClassGenericType.Companion.fromRawClassString(string: String, slashQualified: Boolean = true): ClassGenericType {
-    return string.toQualifiedName(slashQualified).toRawGenericType()
-}
+//fun ClassGenericType.Companion.fromRawClassString(string: String, slashQualified: Boolean = true): ClassGenericType {
+//    return string.toQualifiedName(slashQualified).toRawGenericType()
+//}
 
-/**
- * Will only put the type args at the INNERMOST class!
- */
-fun ClassGenericType.Companion.fromNameAndTypeArgs(
-    name: QualifiedName,
-    typeArgs: List<TypeArgument>
-): ClassGenericType {
-    val outerClassesArgs: List<List<TypeArgument>> = (0 until (name.shortName.components.size - 1)).map { listOf() }
-    return name.toClassGenericType(outerClassesArgs + listOf(typeArgs))
-}
+
+//fun ClassGenericType.Companion.fromNameAndTypeArgs(
+//    name: QualifiedName,
+//    typeArgs: List<TypeArgument>
+//): ClassGenericType {
+//
+//}
 
 
 fun ClassGenericType.toJvmQualifiedName(): QualifiedName =
@@ -64,8 +61,8 @@ fun ClassGenericType.toJvmQualifiedName(): QualifiedName =
 
 fun ClassGenericType.toJvmString() = toJvmQualifiedName().toSlashString()
 
-fun <T : GenericReturnType> T.noAnnotations(): JavaType<T> = JavaType(this, listOf())
-fun <T : GenericReturnType> T.annotated(annotation: JavaAnnotation): JavaType<T> = JavaType(this, listOf(annotation))
+//fun <T : GenericReturnType> T.noAnnotations(): JavaType<T> = JavaType(this, listOf())
+//fun <T : GenericReturnType> T.annotated(annotation: JavaAnnotation): JavaType<T> = JavaType(this, listOf(annotation))
 
 fun GenericTypeOrPrimitive.toJvmType(): JvmType = when (this) {
     is GenericsPrimitiveType -> primitive
@@ -111,41 +108,25 @@ fun ClassGenericType.outerClass(): ClassGenericType {
 
 fun JavaClassType.outerClass(): JavaClassType = copy(type = type.outerClass())
 
-fun QualifiedName.toRawGenericType(): ClassGenericType = toClassGenericType(shortName.components.map { listOf() })
-
-/**
- *  Each element in typeArgsChain is for an element in the inner class name chain.
- *  Each element contains the type args for each class name in the chain.
- */
-fun QualifiedName.toClassGenericType(typeArgsChain: List<List<TypeArgument>>): ClassGenericType =
-        ClassGenericType(packageName,
-                shortName.components.zip(typeArgsChain).map { (name, args) -> SimpleClassGenericType(name, args) }
-        )
-
-fun ObjectType.toRawGenericType(): ClassGenericType = fullClassName.toRawGenericType()
-fun ObjectType.toRawJavaType(): JavaClassType = JavaClassType(fullClassName.toRawGenericType(), annotations = listOf())
-fun JvmType.toRawGenericType(): GenericTypeOrPrimitive = when (this) {
-    is JvmPrimitiveTypes -> JvmPrimitiveToGenericsPrimitive.getValue(this)
-    is ObjectType -> toRawGenericType()
-    is ArrayType -> ArrayGenericType(componentType.toRawGenericType())
-}
-
-private val JvmPrimitiveToGenericsPrimitive = mapOf(
-        JvmPrimitiveTypes.Byte to GenericsPrimitiveType.Byte,
-        JvmPrimitiveTypes.Char to GenericsPrimitiveType.Char,
-        JvmPrimitiveTypes.Double to GenericsPrimitiveType.Double,
-        JvmPrimitiveTypes.Float to GenericsPrimitiveType.Float,
-        JvmPrimitiveTypes.Int to GenericsPrimitiveType.Int,
-        JvmPrimitiveTypes.Long to GenericsPrimitiveType.Long,
-        JvmPrimitiveTypes.Short to GenericsPrimitiveType.Short,
-        JvmPrimitiveTypes.Boolean to GenericsPrimitiveType.Boolean
-)
+//fun QualifiedName.toRawGenericType(): ClassGenericType = toClassGenericType(shortName.components.map { listOf() })
 
 
-fun JvmReturnType.toRawGenericType(): GenericReturnType = when (this) {
-    is JvmType -> toRawGenericType()
-    VoidJvmReturnType -> VoidGenericReturnType
-}
+
+//fun ObjectType.toRawGenericType(): ClassGenericType = fullClassName.toRawGenericType()
+//fun ObjectType.toRawJavaType(): JavaClassType = JavaClassType(ClassGenericType.fromRawJvmType(this), annotations = listOf())
+//fun JvmType.toRawGenericType(): GenericTypeOrPrimitive = when (this) {
+//    is JvmPrimitiveTypes -> JvmPrimitiveToGenericsPrimitive.getValue(this)
+//    is ObjectType -> toRawGenericType()
+//    is ArrayType -> ArrayGenericType(componentType.toRawGenericType())
+//}
+
+
+
+
+//fun JvmReturnType.toRawGenericType(): GenericReturnType = when (this) {
+//    is JvmType -> toRawGenericType()
+//    VoidJvmReturnType -> VoidGenericReturnType
+//}
 
 //fun ClassGenericType.remapTopLevel(mapper: (className: QualifiedName) -> QualifiedName?): ClassGenericType {
 //    val asQualifiedName = toJvmQualifiedName()

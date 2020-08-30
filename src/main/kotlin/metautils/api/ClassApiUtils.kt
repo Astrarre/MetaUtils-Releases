@@ -104,21 +104,21 @@ private inline fun ClassApi.visitThisAndOuterClasses(visitor: (ClassApi) -> Unit
 }
 
 val ClassApi.Method.isVoid get() = returnType.type == VoidGenericReturnType
-fun ClassApi.asType(): JavaClassType =  name.toClassGenericType(
-        if (isStatic) {
-            // Only put type arguments at the end
-            (0 until outerClassCount()).map { listOf<TypeArgument>() } + listOf(typeArguments.toTypeArgumentsOfNames())
-        } else outerClassesToThis().map { it.typeArguments.toTypeArgumentsOfNames() }
-).noAnnotations()
+fun ClassApi.asType(): JavaClassType =  JavaClassType.withNoAnnotations(name,
+    typeArgs = if (isStatic) {
+        // Only put type arguments at the end
+        (0 until outerClassCount()).map { listOf<TypeArgument>() } + listOf(typeArguments.toTypeArgumentsOfNames())
+    } else outerClassesToThis().map { it.typeArguments.toTypeArgumentsOfNames() }
+)
 
-fun ClassApi.asRawType() = asJvmType().toRawJavaType()
+fun ClassApi.asRawJavaType() = JavaType.fromRawJvmType(asJvmType())
 fun ClassApi.asJvmType() = ObjectType.fromClassName(name)
 
 fun ClassApi.isSamInterface() = isInterface && methods.filter { it.isAbstract }.size == 1
 
 fun ClassApi.getSignature(): ClassSignature = ClassSignature(
         typeArguments,
-        superClass?.type ?: JavaLangObjectGenericType,
+        superClass?.type ?: ClassGenericType.Object,
         superInterfaces.map { it.type }
 )
 

@@ -38,7 +38,7 @@ internal open class JavaCodeWriter : CodeWriter() {
             code.parameters.toParameterList().mapString { "$prefixStr$it" }.prependArgs(prefixArgs)
         }
         is ReturnStatement -> write(code.target).mapString { "return $it" }
-        is ClassReceiver -> TYPE_FORMAT.formatType(code.type.toRawJavaType())
+        is ClassReceiver -> TYPE_FORMAT.formatType(JavaType.fromRawJvmType(code.type))
         SuperReceiver -> "super".format
         is AssignmentStatement -> writeCode(code.target as Code).mapString { "$it = " } + write(code.assignedValue)
         is ArrayConstructor -> write(code.size).mapString { "new $TYPE_FORMAT[$it]" }
@@ -57,14 +57,14 @@ internal open class JavaCodeWriter : CodeWriter() {
             val elements = value.annotation.parameters.map { (name, value) -> name to writeAnnotationValue(value) }
             val arguments = elements.joinToString(", ") { (name, format) -> "$name = ${format.string}" }
             val string = "@$TYPE_FORMAT($arguments)"
-            string.formatType(value.annotation.type.toRawJavaType())
+            string.formatType(JavaType.fromRawJvmType(value.annotation.type))
                     .appendArgs(elements.flatMap { (_, format) -> format.formatArguments })
         }
         is AnnotationValue.Primitive.Num -> value.primitive.toString().format
         is AnnotationValue.Primitive.Bool -> (if (value.primitive) "true" else "false").format
         is AnnotationValue.Primitive.Cha -> "'${value.primitive}'".format
         is AnnotationValue.Primitive.Str -> "\"${value.primitive}\"".format
-        is AnnotationValue.Enum -> "$TYPE_FORMAT.${value.constant}".formatType(value.type.toRawJavaType())
+        is AnnotationValue.Enum -> "$TYPE_FORMAT.${value.constant}".formatType(JavaType.fromRawJvmType(value.type))
         is AnnotationValue.ClassType -> value.type.toFormattedString().mapString { "$it.class" }
     }
 
@@ -81,7 +81,7 @@ internal open class JavaCodeWriter : CodeWriter() {
 
     private fun JvmType.toFormattedString(): FormattedString = when (this) {
         is JvmPrimitiveTypes -> toFormat().format
-        is ObjectType -> TYPE_FORMAT.formatType(toRawJavaType())
+        is ObjectType -> TYPE_FORMAT.formatType(JavaType.fromRawJvmType(this))
         is ArrayType -> componentType.toFormattedString().mapString { "$it[]" }
     }
 

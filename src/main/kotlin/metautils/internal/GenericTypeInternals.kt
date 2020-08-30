@@ -36,9 +36,9 @@ internal fun classSignatureFromAsmClassNode(classNode: ClassNode, outerClassType
     )
 } else {
     ClassSignature(
-        superClass = ClassGenericType.fromRawClassString(classNode.superName),
+        superClass = ClassGenericType.withNoTypeArgs(classNode.superName),
         superInterfaces = classNode.interfaces.map {
-            ClassGenericType.fromRawClassString(it)
+            ClassGenericType.withNoTypeArgs(it)
         },
         typeArguments = listOf()
     )
@@ -49,9 +49,9 @@ internal fun methodSignatureFromAsmMethodNode(method: MethodNode, classTypeArgs:
     val descriptor = MethodDescriptor.fromDescriptorString(method.desc)
     val parameters = getNonGeneratedParameterDescriptors(descriptor, method)
     MethodSignature(
-        typeArguments = listOf(), parameterTypes = parameters.map { it.toRawGenericType() },
-        returnType = descriptor.returnDescriptor.toRawGenericType(),
-        throwsSignatures = method.exceptions.map { ClassGenericType.fromRawClassString(it) }
+        typeArguments = listOf(), parameterTypes = parameters.map { GenericTypeOrPrimitiveGen.fromRawJvmType(it)},
+        returnType = GenericReturnType.fromRawJvmType(descriptor.returnDescriptor),
+        throwsSignatures = method.exceptions.map { ClassGenericType.withNoTypeArgs(it) }
     )
 }
 

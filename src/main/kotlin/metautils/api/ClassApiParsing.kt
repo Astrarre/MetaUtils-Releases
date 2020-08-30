@@ -13,9 +13,6 @@ import metautils.signature.*
 import org.objectweb.asm.tree.AnnotationNode
 import org.objectweb.asm.tree.FieldNode
 import org.objectweb.asm.tree.MethodNode
-import metautils.signature.fromRawClassString
-import metautils.signature.noAnnotations
-import metautils.signature.toRawGenericType
 import metautils.types.JvmType
 import metautils.types.MethodDescriptor
 import metautils.util.*
@@ -118,9 +115,9 @@ private fun readSingularClass(
     val classApi = ClassApi(
         name = fullClassName,
         superClass = if (classNode.superName == ClassNames.Object) null else {
-            JavaClassType(signature.superClass, annotations = listOf())
+            JavaClassType.withNoAnnotations(signature.superClass)
         },
-        superInterfaces = signature.superInterfaces.map { JavaClassType(it, annotations = listOf()) },
+        superInterfaces = signature.superInterfaces.map { JavaClassType.withNoAnnotations(it) },
         methods = methods.toSet(), fields = fields.toSet(),
         innerClasses = innerClasses,
 //        outerClass = outerClass,
@@ -214,11 +211,11 @@ private fun parseAnnotations(visible: List<AnnotationNode>?, invisible: List<Ann
 
 private fun readField(field: FieldNode, classTypeArgs:  Iterable<TypeArgumentDeclaration>): ClassApi.Field {
     val signature = if (field.signature != null) FieldSignature.fromFieldSignature(field.signature, classTypeArgs)
-    else JvmType.fromDescriptorString(field.desc).toRawGenericType()
+    else GenericTypeOrPrimitive.fromRawJvmType(JvmType.fromDescriptorString(field.desc))
 
     return ClassApi.Field(
         name = field.name,
-        type = AnyJavaType(
+        type = JavaType.fromTypeAndAnnotations(
             signature,
             annotations = parseAnnotations(field.visibleAnnotations, field.invisibleAnnotations)
         ),
@@ -243,20 +240,20 @@ private fun readMethod(
     return ClassApi.Method(
         name = method.name,
         typeArguments = signature.typeArguments,
-        returnType = JavaReturnType(
+        returnType = JavaType.fromTypeAndAnnotations(
             signature.returnType,
             annotations = parseAnnotations(method.visibleAnnotations, method.invisibleAnnotations)
         ),
         parameters = parameterNames.zip(signature.parameterTypes)
             .mapIndexed { index, (name, type) ->
-                name to AnyJavaType(
+                name to JavaType.fromTypeAndAnnotations(
                     type, annotations = parseAnnotations(
                         method.visibleParameterAnnotations?.get(index),
                         method.invisibleParameterAnnotations?.get(index)
                     )
                 )
             },
-        throws = signature.throwsSignatures.map { it.noAnnotations() },
+        throws = signature.throwsSignatures.map { JavaType.withNoAnnotations(it) },
         access = MethodAccess(
             isStatic = method.isStatic,
             isFinal = method.isFinal,

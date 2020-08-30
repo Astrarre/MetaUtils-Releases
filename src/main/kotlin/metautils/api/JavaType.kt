@@ -15,10 +15,22 @@ import org.objectweb.asm.tree.AnnotationNode
 // This is actually not a complete representation of java type since it doesn't have annotations in type arguments,
 // but those are rarely used, only exist in newer versions of jetbrains annotations, and even modern decompilers
 // don't know how to decompile them, so it's fine to omit them here
-data class JavaType<out T : GenericReturnType>(val type: T, val annotations: List<JavaAnnotation>) :
+//TODO: cache Void and Object and primitive type creations, use an internal method for that.
+data class JavaType<out T : GenericReturnType> private constructor(val type: T, val annotations: List<JavaAnnotation>) :
     Mappable<JavaType<T>>  by properties(type,annotations, {newType, ano -> JavaType(newType as T,ano)}) {
     companion object {
-        fun fromRawClassName(name: String) = ClassGenericType.fromRawClassString(name).noAnnotations()
+        val Object = withNoAnnotations(ClassGenericType.Object)
+        val Void = withNoAnnotations(VoidGenericReturnType)
+        val Int = withNoAnnotations(GenericsPrimitiveType.Int)
+
+        //TODO: consider some form of StringConvertible?
+
+        fun <T : GenericReturnType>fromTypeAndAnnotations(type: T, annotations: List<JavaAnnotation>): JavaType<T> = JavaType(type,annotations)
+        fun fromRawClassName(name: String): JavaClassType = withNoAnnotations(ClassGenericType.withNoTypeArgs(name))
+        fun fromRawJvmType(type: ObjectType): JavaClassType = withNoAnnotations(ClassGenericType.withNoTypeArgs(type))
+        fun <T : GenericReturnType > withNoAnnotations(type: T): JavaType<T> = fromTypeAndAnnotations(type, listOf())
+        fun  withNoAnnotations(name: QualifiedName, typeArgs: List<List<TypeArgument>>): JavaClassType =
+            withNoAnnotations(ClassGenericType.fromNameAndTypeArgs(name,typeArgs))
     }
     override fun toString(): String = annotations.joinToString("") { "$it " } + type
 //    override fun map(mapper: (QualifiedName) -> QualifiedName): JavaType<T> = copy(type = type.map(mapper) as T)

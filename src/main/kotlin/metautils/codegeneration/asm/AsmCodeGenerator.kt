@@ -9,8 +9,6 @@ import metautils.signature.*
 import metautils.util.*
 import org.objectweb.asm.Opcodes
 import org.objectweb.asm.Type
-import metautils.signature.JavaLangObjectGenericType
-import metautils.signature.VoidJavaType
 import metautils.signature.getContainedClassesRecursively
 import metautils.signature.toJvmType
 import metautils.types.JvmReturnType
@@ -35,7 +33,7 @@ private fun writeClassImpl(
     val genericsInvolved = typeArguments.isNotEmpty() || superClass?.type?.hasGenericsInvolved() == true
             || superInterfaces.any { it.type.hasGenericsInvolved() }
     val signature = if (genericsInvolved) ClassSignature(typeArguments = typeArguments,
-            superClass = superClass?.type ?: JavaLangObjectGenericType,
+            superClass = superClass?.type ?: ClassGenericType.Object,
             superInterfaces = superInterfaces.map { it.type }
         ) else null
 
@@ -109,7 +107,7 @@ private class AsmGeneratedClass(
         assert(instanceFieldInitializers.isEmpty() || constructors.isNotEmpty())
         for (constructor in constructors) {
             constructor.addMethodImpl(
-                returnType = VoidJavaType,
+                returnType = JavaType.Void,
                 name = ConstructorsName,
                 typeArguments = listOf(),
                 access = MethodAccess(
@@ -143,7 +141,7 @@ private class AsmGeneratedClass(
                 }
             }
             staticInitializer.addMethodImpl(
-                returnType = VoidJavaType,
+                returnType = JavaType.Void,
                 name = "<clinit>",
                 typeArguments = listOf(),
                 access = MethodAccess(
