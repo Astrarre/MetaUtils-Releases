@@ -1,8 +1,11 @@
 package metautils.util
 
+import metautils.asm.opCode
 import metautils.asm.readToClassNode
 import metautils.types.MethodDescriptor
 import metautils.types.classFileName
+import org.objectweb.asm.Opcodes
+import org.objectweb.asm.tree.ClassNode
 import java.lang.reflect.Method
 import java.nio.file.FileSystem
 import java.nio.file.FileSystems
@@ -38,9 +41,9 @@ class ClasspathIndex @PublishedApi internal constructor(
     AutoCloseable {
 
     companion object {
-         fun <T> index(
-             classPath: List<Path>, additionalEntries: Map<QualifiedName, ClassEntry>,
-             usage: (ClasspathIndex) -> T
+        fun <T> index(
+            classPath: List<Path>, additionalEntries: Map<QualifiedName, ClassEntry>,
+            usage: (ClasspathIndex) -> T
         ): T = ClasspathIndex(classPath, additionalEntries).let {
             val result = usage(it)
             it.close()
@@ -100,11 +103,19 @@ class ClasspathIndex @PublishedApi internal constructor(
                 val id = MethodIdentifier(it.name, it.desc)
                 id to MethodEntry(id, it.access)
             }.toMap(),
-            superClass =  classNode.superName.toQualifiedName(slashQualified = true),
+            superClass = classNode.superName.toQualifiedName(slashQualified = true),
             superInterfaces = classNode.interfaces.map { it.toQualifiedName(slashQualified = true) },
-            access = classNode.access,
+            access = classNode.getActualAccess(),
             name = name
         )
+    }
+
+    // If we just do .access it won't include the "static" modifier of static inner classes. That information only exists in the INNERCLASS field inside the class.
+    private fun ClassNode.getActualAccess(): Int {
+        val selfInnerClassInformation = innerClasses.find { it.name == this.name } ?: return access
+        // Make sure the "static" opcode information is added when it exists
+        if (selfInnerClassInformation.access opCode Opcodes.ACC_STATIC) return access or Opcodes.ACC_STATIC
+        else return access
     }
 
     private fun createJdkClassEntry(className: QualifiedName): ClassEntry {
@@ -129,7 +140,7 @@ class ClasspathIndex @PublishedApi internal constructor(
 
 
     private fun QualifiedName.isJavaClass(): Boolean = packageName.startsWith("java")
-            ||  packageName.startsWith("javax")
+            || packageName.startsWith("javax")
 
     private fun getClassEntry(className: QualifiedName): ClassEntry = classesCache.computeIfAbsent(className) {
         if (className.isJavaClass()) createJdkClassEntry(className) else createNonJdkClassEntry(className)
