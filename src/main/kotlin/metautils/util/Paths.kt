@@ -4,6 +4,7 @@ import java.io.InputStream
 import java.nio.charset.Charset
 import java.nio.file.*
 import java.util.jar.JarOutputStream
+import kotlin.io.FileAlreadyExistsException
 import kotlin.streams.asSequence
 import kotlin.streams.toList
 
@@ -24,7 +25,15 @@ fun Path.createDirectory(): Path = Files.createDirectory(this)
 fun Path.createDirectories(): Path = Files.createDirectories(this)
 fun Path.createParentDirectories(): Path = parent.createDirectories()
 fun Path.inputStream(): InputStream = Files.newInputStream(this)
-fun Path.writeBytes(bytes: ByteArray): Path = Files.write(this, bytes)
+fun Path.writeBytes(bytes: ByteArray): Path {
+    try {
+        return Files.write(this, bytes)
+    } catch (e: java.nio.file.FileAlreadyExistsException) {
+        delete()
+        return Files.write(this, bytes)
+    }
+}
+
 fun Path.writeString(str: String): Path = Files.write(this, str.toByteArray())
 fun Path.readToString() = Files.readAllBytes(this).toString(Charset.defaultCharset())
 inline fun openJars(jar1: Path, jar2: Path, jar3: Path, usage: (FileSystem, FileSystem, FileSystem) -> Unit) =
@@ -45,7 +54,6 @@ fun Path.recursiveChildren() = Files.walk(this).toList()
 //inline fun Path.forEachRecursiveChild(usage: (Path) -> Unit){
 //    recursiveChildren { it.forEach(usage) }
 //}
-
 
 
 fun Path.hasExtension(extension: String) = toString().endsWith(extension)
